@@ -1,0 +1,47 @@
+# Builds EZclimates and runs its test suite on a clean machine.
+#
+# "on:" lists the events that start this workflow.
+name: Build
+
+on:
+  push:
+    branches: [main]          # every push to main
+  pull_request:
+    branches: [main]          # every pull request targeting main
+  workflow_dispatch:          # lets you run it by hand from the Actions tab
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest    # a fresh throwaway Linux machine, per run
+
+    steps:
+      # Copy the repository onto the machine.
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      # Install Java 25 and cache the Maven dependency downloads, so later
+      # runs do not re-download paper-api, the EZvac API and packetevents every time.
+      # Java 25: EZclimates is for Minecraft 26.x, which runs on Java 25.
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # -B is "batch mode": no interactive prompts, cleaner logs.
+      # "verify" runs the full lifecycle including the test suite.
+      - name: Build and run tests
+        run: mvn -B clean verify
+
+      # Keep the built jar so you can download it from the run's summary page.
+      # Useful for testing a contributor's pull request without building it
+      # yourself. Retained for 30 days.
+      - name: Upload the built jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: EZclimates-jar
+          path: target/EZclimates-*.jar
+          if-no-files-found: error
+          retention-days: 30
