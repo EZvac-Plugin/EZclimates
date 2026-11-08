@@ -223,4 +223,26 @@ class SeasonsTest {
         assertFalse(EzClimatesPlugin.supported("1.8"));
         assertFalse(EzClimatesPlugin.supported("2.0"));
     }
+
+    @Test
+    void eachPlacedBlockIsRecordedInANumber() {
+        int snow = Placed.pack(15, -64, 3, Placed.What.SNOW), ice = Placed.pack(0, 319, 15, Placed.What.ICE);
+        assertEquals(15, Placed.x(snow));
+        assertEquals(-64, Placed.y(snow), "heights below 0 too");
+        assertEquals(3, Placed.z(snow));
+        assertEquals(Placed.What.SNOW, Placed.what(snow));
+        assertEquals(319, Placed.y(ice));
+        assertEquals(Placed.What.ICE, Placed.what(ice));
+        assertEquals(-2048, Placed.y(Placed.pack(0, -2048, 0, Placed.What.ICE)));
+        assertEquals(2047, Placed.y(Placed.pack(0, 2047, 0, Placed.What.ICE)));
+        Placed placed = new Placed();
+        assertTrue(placed.add(snow));
+        assertFalse(placed.add(snow), "once");
+        for (int i = 0; i < 20; i++) placed.add(Placed.pack(i & 15, i, 0, Placed.What.SNOW));
+        assertTrue(placed.remove(snow));
+        assertFalse(placed.contains(snow));
+        Placed again = new Placed(placed.toArray());
+        assertEquals(placed.size(), again.size(), "as saved in the chunk and read back");
+        assertTrue(new Placed(null).isEmpty());
+    }
 }

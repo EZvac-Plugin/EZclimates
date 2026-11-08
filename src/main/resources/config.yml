@@ -48,9 +48,40 @@ colours:
     mushroom: 0.2
     jungle: 0.15
 
+# Snow that settles where EZvac says it snows, on open ground round players,
+# and melts layer by layer once EZvac's air is above 34 F. Every block of it
+# is recorded in its chunk and only recorded blocks are ever melted, so it
+# never stays forever, and a player's own snow and the snow snowy biomes are
+# generated with are never touched. Vanilla's own weather snow is stopped,
+# so all of it follows EZvac.
+snow:
+  enabled: true
+  # How far round each player snow and ice are placed.
+  radius-blocks: 64
+  # How deep it gets with longer snowfall, in layers (1 to 8).
+  max-layers: 2
+
+# Ice on the surface of still water when EZvac's water temperature there is
+# at freezing: 32 F for fresh water, 28 F for the sea. Ponds, lakes, rivers,
+# oceans and unheated pools; a heated pool never freezes. It thaws above
+# 34 F, back into water. Recorded like snow, so it always melts; the world's
+# own ice (frozen oceans, icebergs) is never touched. Never under a boat or
+# a swimmer.
+ice:
+  enabled: true
+
 # How much work each tick may do. Snow lines are worked out for the chunks
 # round players; when one changes (rain turning to snow, a new stage), the
-# chunks players already have are resent, nearest first.
+# chunks players already have are resent, nearest first. Snow and ice look
+# at a few columns round players for new snow and ice, and at a few
+# recorded blocks to melt.
 budget:
   snow-lines-per-tick: 200
   chunks-resent-per-tick: 12
+  blocks-per-tick: 24
+  records-per-tick: 64
+
+# To remove EZclimates cleanly: /ezclimates clear melts every recorded block
+# of snow and ice in loaded chunks, and in every chunk as it loads, and
+# places no more. /ezclimates status says how many are left in loaded
+# chunks; /ezclimates resume goes back to normal.

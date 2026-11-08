@@ -22,6 +22,18 @@ public final class EzClimatesPlugin extends JavaPlugin {
     private PacketListenerCommon listener;
     private BukkitTask task;
     private Settings settings;
+    private SnowAndIce snow;
+    private java.io.File state;
+
+    private void saveClearing(boolean clearing) {
+        org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
+        yaml.set("clearing", clearing);
+        try {
+            yaml.save(state);
+        } catch (java.io.IOException failure) {
+            getLogger().warning("Could not save state.yml: " + failure.getMessage());
+        }
+    }
 
     /** API 1.9 or newer, within major version 1. */
     static boolean supported(String apiVersion) {
@@ -64,7 +76,16 @@ public final class EzClimatesPlugin extends JavaPlugin {
         listener = PacketEvents.getAPI().getEventManager().registerListener(rewriter, PacketListenerPriority.HIGH);
         getServer().getPluginManager().registerEvents(updater, this);
         updater.start(getServer().getOnlinePlayers());
-        task = getServer().getScheduler().runTaskTimer(this, () -> updater.tick(getServer().getWorlds()), 1L, 1L);
+        state = new java.io.File(getDataFolder(), "state.yml");
+        boolean clearing = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(state).getBoolean("clearing");
+        snow = new SnowAndIce(ezvac, settings, new org.bukkit.NamespacedKey(this, "placed"), clearing);
+        getServer().getPluginManager().registerEvents(snow, this);
+        snow.start(getServer().getWorlds());
+        if (clearing) getLogger().info("Still clearing snow and ice (/ezclimates resume to stop).");
+        task = getServer().getScheduler().runTaskTimer(this, () -> {
+            updater.tick(getServer().getWorlds());
+            snow.tick(getServer().getWorlds());
+        }, 1L, 1L);
         registerCommand("ezclimates", "EZclimates' status", new Commands());
         getLogger().info("EZclimates is showing EZvac's seasons: " + EzClimatesBootstrap.copies
                 + " seasonal biomes, rain and snow " + (settings.rainAndSnow() ? "on" : "off")
@@ -87,7 +108,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         @Override
         public java.util.Collection<String> suggest(io.papermc.paper.command.brigadier.CommandSourceStack source,
                                                     String[] args) {
-            return args.length <= 1 ? List.of("status") : List.of();
+            return args.length <= 1 ? List.of("status", "here", "clear", "resume") : List.of();
         }
 
         @Override
@@ -107,8 +128,41 @@ public final class EzClimatesPlugin extends JavaPlugin {
                             + ", " + look.lines.size() + " chunks' snow lines known.");
                 }
                 sender.sendMessage("  Chunks resent since start: " + updater.resentTotal() + ".");
+                int[] recorded = snow.recorded();
+                sender.sendMessage("  Snow and ice in loaded chunks: " + recorded[0] + " snow, " + recorded[1]
+                        + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
+                        + (snow.clearing() ? ". Clearing: nothing new is placed (/ezclimates resume)." : "."));
             }
-            default -> sender.sendMessage("Usage: /" + label + " status");
+            case "here" -> {
+                org.bukkit.Location at;
+                if (sender instanceof org.bukkit.entity.Player player) at = player.getLocation();
+                else if (args.length >= 3) {
+                    try {
+                        at = new org.bukkit.Location(getServer().getWorlds().get(0), Integer.parseInt(args[1]), 0,
+                                Integer.parseInt(args[2]));
+                    } catch (NumberFormatException notANumber) {
+                        sender.sendMessage("Usage: /" + label + " here <x> <z> (from the console)");
+                        return;
+                    }
+                } else {
+                    sender.sendMessage("Usage: /" + label + " here <x> <z> (from the console)");
+                    return;
+                }
+                for (String line : snow.describe(at.getWorld(), at.getBlockX(), at.getBlockZ())) sender.sendMessage(line);
+            }
+            case "clear" -> {
+                snow.setClearing(true);
+                saveClearing(true);
+                sender.sendMessage("Clearing: every recorded block of snow and ice melts, in loaded chunks now and in"
+                        + " others as they load, and nothing new is placed. /ezclimates status shows what's left;"
+                        + " /ezclimates resume goes back to normal.");
+            }
+            case "resume" -> {
+                snow.setClearing(false);
+                saveClearing(false);
+                sender.sendMessage("Snow and ice follow EZvac again.");
+            }
+            default -> sender.sendMessage("Usage: /" + label + " status | here | clear | resume");
         }
     }
 }
