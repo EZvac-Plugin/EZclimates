@@ -1,0 +1,56 @@
+# EZclimates: seasons you can see, from EZvac's climate (0.1.0).
+#
+# Rain and snow fall where EZvac's air says, and leaves and grass change
+# colour through the year. Only what players are sent changes: the world
+# keeps its own biomes, so removing EZclimates leaves nothing behind.
+# Needs EZvac BETA 1.0 Pilot 4 or newer, packetevents, and Paper or Purpur
+# 26.1 or newer.
+
+# Rain where EZvac says it rains and snow where it snows, by its air: the
+# season, the height and the time of day all count, so the plains snow in a
+# cold winter and a mountain can snow at the top and rain at its foot.
+# EZvac's weather.dry-areas sets whether deserts get rain in thunderstorms.
+rain-and-snow: true
+
+# Leaves and grass through the year: fresh in spring, as vanilla in summer,
+# yellowing in early autumn, orange-red in late autumn, dull in winter.
+# Birch and spruce leaves keep their fixed colours, as in vanilla.
+# Changing any of these colours takes a restart: they shape the seasonal
+# biomes written at start-up.
+colours:
+  enabled: true
+  # Where each stage pulls leaves (foliage) and grass, and how far (share, 0
+  # to 1). Summer is always vanilla.
+  foliage:
+    spring: { color: '#8cd45a', share: 0.25 }
+    autumn_early: { color: '#d2b832', share: 0.55 }
+    autumn_late: { color: '#c8562a', share: 0.75 }
+    winter: { color: '#8c7a5a', share: 0.6 }
+  grass:
+    spring: { color: '#7ed050', share: 0.2 }
+    autumn_early: { color: '#b4a848', share: 0.35 }
+    autumn_late: { color: '#a88c4c', share: 0.5 }
+    winter: { color: '#8e8c66', share: 0.55 }
+  # How strongly each kind of biome turns, 0 to 1: broadleaf forests most, a
+  # jungle barely.
+  strength:
+    forest: 1.0
+    plains: 0.8
+    mountain: 0.6
+    swamp: 0.6
+    cherry: 0.6
+    water: 0.7
+    savanna: 0.5
+    taiga: 0.45
+    dry: 0.35
+    cold: 0.3
+    pale: 0.2
+    mushroom: 0.2
+    jungle: 0.15
+
+# How much work each tick may do. Snow lines are worked out for the chunks
+# round players; when one changes (rain turning to snow, a new stage), the
+# chunks players already have are resent, nearest first.
+budget:
+  snow-lines-per-tick: 200
+  chunks-resent-per-tick: 12
