@@ -9,8 +9,9 @@ import java.util.Locale;
  * <p>When a biome names no grass or leaf colour, the client takes it from a
  * colour map by the biome's temperature and downfall. The maps are the
  * client's textures, so EZclimates never ships them: each is a smooth blend
- * between three corner colours (hot and wet, hot and dry, cold), which gives
- * vanilla's colours to within a few shades.
+ * between three corner colours (hot and wet, hot and dry, cold), which comes
+ * close to vanilla's (within about 16 of 255 on a channel). It only shows
+ * where a summer copy stands in for the original, such as summer snow.
  */
 public final class Colours {
     private Colours() {}
