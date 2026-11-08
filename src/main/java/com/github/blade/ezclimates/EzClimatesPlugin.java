@@ -78,7 +78,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
         updater.start(getServer().getOnlinePlayers());
         state = new java.io.File(getDataFolder(), "state.yml");
         boolean clearing = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(state).getBoolean("clearing");
-        snow = new SnowAndIce(ezvac, settings, new org.bukkit.NamespacedKey(this, "placed"), clearing);
+        snow = new SnowAndIce(ezvac, settings, new org.bukkit.NamespacedKey(this, "placed"),
+                new org.bukkit.NamespacedKey(this, "covered"), clearing);
         getServer().getPluginManager().registerEvents(snow, this);
         snow.start(getServer().getWorlds());
         if (clearing) getLogger().info("Still clearing snow and ice (/ezclimates resume to stop).");
@@ -149,6 +150,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
                     return;
                 }
                 for (String line : snow.describe(at.getWorld(), at.getBlockX(), at.getBlockZ())) sender.sendMessage(line);
+                if (sender instanceof org.bukkit.entity.Player player)
+                    for (String line : updater.shownTo(player)) sender.sendMessage(line);
             }
             case "clear" -> {
                 snow.setClearing(true);

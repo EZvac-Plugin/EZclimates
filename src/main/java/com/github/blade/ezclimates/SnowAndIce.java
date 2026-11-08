@@ -60,11 +60,28 @@ public final class SnowAndIce implements Listener {
     private boolean clearing;
     private int placedTotal, meltedTotal;
 
-    public SnowAndIce(EzvacApi ezvac, Settings settings, NamespacedKey key, boolean clearing) {
+    private final NamespacedKey coveredKey;
+
+    public SnowAndIce(EzvacApi ezvac, Settings settings, NamespacedKey key, NamespacedKey coveredKey, boolean clearing) {
         this.ezvac = ezvac;
         this.settings = settings;
         this.key = key;
+        this.coveredKey = coveredKey;
         this.clearing = clearing;
+    }
+
+    /**
+     * Ground cover snow buries and the melt brings back: grasses, ferns,
+     * bushes, flowers, petals and leaf litter, never crops or saplings.
+     */
+    static boolean covers(Material type) {
+        if (org.bukkit.Tag.SMALL_FLOWERS.isTagged(type)) return true;
+        return switch (type.name()) {
+            case "SHORT_GRASS", "TALL_GRASS", "FERN", "LARGE_FERN", "DEAD_BUSH", "BUSH", "SHORT_DRY_GRASS",
+                 "TALL_DRY_GRASS", "FIREFLY_BUSH", "LEAF_LITTER", "WILDFLOWERS", "PINK_PETALS", "SUNFLOWER",
+                 "LILAC", "ROSE_BUSH", "PEONY" -> true;
+            default -> false;
+        };
     }
 
     public void start(Iterable<World> worlds) {
@@ -77,7 +94,8 @@ public final class SnowAndIce implements Listener {
         int[] saved = chunk.getPersistentDataContainer().get(key, PersistentDataType.INTEGER_ARRAY);
         if (saved == null || saved.length == 0) return;
         records.computeIfAbsent(chunk.getWorld().getUID(), ignored -> new Long2ObjectOpenHashMap<>())
-                .put(Looks.chunkKey(chunk.getX(), chunk.getZ()), new Placed(saved));
+                .put(Looks.chunkKey(chunk.getX(), chunk.getZ()), new Placed(saved,
+                        chunk.getPersistentDataContainer().get(coveredKey, PersistentDataType.STRING)));
         // Caught up at once: a chunk unloaded through a thaw melts as it loads.
         queue.addFirst(new long[]{chunk.getWorld().getUID().getMostSignificantBits(),
                 chunk.getWorld().getUID().getLeastSignificantBits(), Looks.chunkKey(chunk.getX(), chunk.getZ())});
@@ -86,6 +104,9 @@ public final class SnowAndIce implements Listener {
     private void save(Chunk chunk, Placed placed) {
         if (placed.isEmpty()) chunk.getPersistentDataContainer().remove(key);
         else chunk.getPersistentDataContainer().set(key, PersistentDataType.INTEGER_ARRAY, placed.toArray());
+        String covered = placed.coveredText();
+        if (covered == null) chunk.getPersistentDataContainer().remove(coveredKey);
+        else chunk.getPersistentDataContainer().set(coveredKey, PersistentDataType.STRING, covered);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -124,7 +145,12 @@ public final class SnowAndIce implements Listener {
         if (players.isEmpty()) return;
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int radius = settings.snowRadius();
-        for (int i = 0; i < settings.blocksPerTick(); i++) {
+        // Vanilla's pace: each chunk gets a try one tick in 16, times snow.rate, within the budget.
+        double chunks = (2.0 * radius + 1) * (2.0 * radius + 1) / 256.0;
+        owed += players.size() * chunks / 16.0 * settings.snowRate();
+        int tries = (int) Math.min(settings.blocksPerTick(), Math.floor(owed));
+        owed = Math.min(owed - tries, settings.blocksPerTick());
+        for (int i = 0; i < tries; i++) {
             Player player = players.get(random.nextInt(players.size()));
             World world = player.getWorld();
             int x = player.getLocation().getBlockX() + random.nextInt(-radius, radius + 1);
@@ -139,6 +165,9 @@ public final class SnowAndIce implements Listener {
         }
     }
 
+    /** Tries not yet made, carried from tick to tick. */
+    private double owed;
+
     private void settle(Block top) {
         World world = top.getWorld();
         if (ezvac.precipitationAt(world, top.getX(), top.getY() + 1, top.getZ()) != Precipitation.SNOW) return;
@@ -147,16 +176,31 @@ public final class SnowAndIce implements Listener {
             // Deeper with longer snowfall, but only on its own snow.
             if (!placed.contains(Placed.pack(top.getX() & 15, top.getY(), top.getZ() & 15, Placed.What.SNOW))) return;
             Snow snow = (Snow) top.getBlockData();
-            if (snow.getLayers() >= settings.maxLayers() || ThreadLocalRandom.current().nextInt(3) != 0) return;
+            if (snow.getLayers() >= settings.maxLayers()) return;
             snow.setLayers(snow.getLayers() + 1);
             top.setBlockData(snow, false);
             return;
         }
         Block above = top.getRelative(BlockFace.UP);
         BlockData snow = Material.SNOW.createBlockData();
-        if (!above.getType().isAir() || !above.canPlace(snow)) return;
+        // Grass and flowers are buried, and recorded so the melt brings them back.
+        String covered = null, coveredTop = null;
+        if (covers(above.getType())) {
+            if (above.getBlockData() instanceof org.bukkit.block.data.Bisected half
+                    && half.getHalf() == org.bukkit.block.data.Bisected.Half.TOP) return;
+            covered = above.getBlockData().getAsString();
+            Block upper = above.getRelative(BlockFace.UP);
+            if (above.getBlockData() instanceof org.bukkit.block.data.Bisected && upper.getType() == above.getType())
+                coveredTop = upper.getBlockData().getAsString();
+        } else if (!above.getType().isAir()) return;
+        // Snow lies where vanilla's would: on a solid top, on grass, or on leaves.
+        if (!top.getBlockData().isFaceSturdy(BlockFace.UP, org.bukkit.block.BlockSupport.FULL)
+                && !org.bukkit.Tag.LEAVES.isTagged(top.getType())) return;
+        int entry = Placed.pack(above.getX() & 15, above.getY(), above.getZ() & 15, Placed.What.SNOW);
+        if (coveredTop != null) above.getRelative(BlockFace.UP).setType(Material.AIR, false);
         above.setBlockData(snow, false);
-        placed.add(Placed.pack(above.getX() & 15, above.getY(), above.getZ() & 15, Placed.What.SNOW));
+        placed.add(entry);
+        if (covered != null) placed.cover(entry, coveredTop == null ? covered : covered + "|" + coveredTop);
         save(above.getChunk(), placed);
         placedTotal++;
     }
@@ -234,7 +278,7 @@ public final class SnowAndIce implements Listener {
                         snow.setLayers(snow.getLayers() - 1);
                         block.setBlockData(snow, false);
                     } else {
-                        block.setType(Material.AIR, false);
+                        uncover(block, placed.uncover(entry));
                         placed.remove(entry);
                         meltedTotal++;
                     }
@@ -255,6 +299,27 @@ public final class SnowAndIce implements Listener {
             }
             if (changed) save(chunk, placed);
             if (placed.isEmpty()) chunks.remove(next[2]);
+        }
+    }
+
+    /** The last layer melts: what it buried grows back, or the air returns. */
+    static void uncover(Block block, String covered) {
+        if (covered == null) {
+            block.setType(Material.AIR, false);
+            return;
+        }
+        String[] halves = covered.split("\\|");
+        try {
+            BlockData lower = org.bukkit.Bukkit.createBlockData(halves[0]);
+            Block upper = block.getRelative(BlockFace.UP);
+            if (halves.length > 1 && !upper.getType().isAir()) {
+                block.setType(Material.AIR, false);   // no room for its top half any more
+                return;
+            }
+            block.setBlockData(lower, false);
+            if (halves.length > 1) upper.setBlockData(org.bukkit.Bukkit.createBlockData(halves[1]), false);
+        } catch (IllegalArgumentException unknown) {
+            block.setType(Material.AIR, false);
         }
     }
 

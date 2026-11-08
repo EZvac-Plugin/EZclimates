@@ -28,6 +28,12 @@ public final class IdMap {
         return Math.max(1, 32 - Integer.numberOfLeadingZeros(highest));
     }
 
+    /** A biome's name by its number, or the number itself if the client has none by it. */
+    public String name(int id) {
+        for (Map.Entry<String, Integer> entry : byName.entrySet()) if (entry.getValue() == id) return entry.getKey();
+        return String.valueOf(id);
+    }
+
     /** The number of a biome by its name, as {@code minecraft:plains}; -1 if the client has none. */
     public int id(String name) {
         Integer id = byName.get(name);

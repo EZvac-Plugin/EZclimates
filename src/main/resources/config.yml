@@ -60,6 +60,11 @@ snow:
   radius-blocks: 64
   # How deep it gets with longer snowfall, in layers (1 to 8).
   max-layers: 2
+  # How fast it settles, and water freezes: 1 is vanilla's pace (each chunk
+  # gets a try one tick in 16), 2 twice as fast (0.1 to 20).
+  rate: 1.0
+  # Grass, ferns, bushes, flowers, petals and leaf litter under it are
+  # buried, and grow back where they were when it melts.
 
 # Ice on the surface of still water when EZvac's water temperature there is
 # at freezing: 32 F for fresh water, 28 F for the sea. Ponds, lakes, rivers,

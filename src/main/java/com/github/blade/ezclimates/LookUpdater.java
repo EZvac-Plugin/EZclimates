@@ -291,6 +291,41 @@ public final class LookUpdater implements Listener {
         return new DataPalette(GlobalPalette.INSTANCE, storage, PaletteType.BIOME);
     }
 
+    /**
+     * What a player's client was last sent where they stand, and what it
+     * should show now: for /ezclimates here, to set beside F3's biome.
+     */
+    public List<String> shownTo(Player player) {
+        List<String> lines = new ArrayList<>();
+        World world = player.getWorld();
+        Looks.WorldLook look = looks.worlds.get(world.getUID());
+        if (look == null) {
+            lines.add("No seasons are shown in this world.");
+            return lines;
+        }
+        User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
+        IdMap map = user == null ? null : rewriter.ids(user);
+        if (map == null || map.isEmpty()) {
+            lines.add("Your client has no seasonal biomes (it joined before they loaded?): log in again.");
+            return lines;
+        }
+        int x = player.getLocation().getBlockX(), y = player.getLocation().getBlockY(), z = player.getLocation().getBlockZ();
+        long key = Looks.chunkKey(x >> 4, z >> 4);
+        int sectionMiddle = look.minY + Math.floorDiv(y - look.minY, 16) * 16 + 8;
+        String biome = world.getBiome(x, y, z).getKey().toString();
+        int original = map.id(biome);
+        Map<Long, Long> sentTo = looks.sent.get(player.getUniqueId());
+        Long sent = sentTo == null ? null : sentTo.get(key);
+        long now = Looks.look(look.stage, look.lines.get(key));
+        lines.add("The world's biome here: " + biome + ". Stage " + look.stage.key() + "; this chunk's snow line "
+                + look.lines.get(key) + ".");
+        if (sent == null) lines.add("Your client was sent this chunk as it is (" + biome + ").");
+        else lines.add("Your client was sent: " + map.name(map.map(original, Looks.stage(sent),
+                Looks.kind(Looks.line(sent), sectionMiddle))) + (Looks.same(sent, now, look.minY, look.height)
+                ? "" : " (out of date: a resend is on its way)") + ". F3 should show the same.");
+        return lines;
+    }
+
     public int resentTotal() { return resentTotal; }
 
     /** How many chunks' snow lines are known now, over every world. */

@@ -14,13 +14,47 @@ public final class Placed {
 
     private int[] entries;
     private int size;
+    /** What each block of snow covered (grass, flowers), to bring back when it melts. */
+    private final java.util.Map<Integer, String> covered = new java.util.HashMap<>();
 
     public Placed(int[] saved) {
-        entries = saved == null ? new int[0] : saved.clone();
-        size = entries.length;
+        this(saved, null);
     }
 
-    public Placed() { this(null); }
+    /** As saved: the blocks, and what the snow covered, one {@code entry=block data} a line. */
+    public Placed(int[] saved, String coveredSaved) {
+        entries = saved == null ? new int[0] : saved.clone();
+        size = entries.length;
+        if (coveredSaved != null)
+            for (String line : coveredSaved.split("\\n")) {
+                int equals = line.indexOf('=');
+                if (equals <= 0) continue;
+                try {
+                    covered.put(Integer.parseInt(line.substring(0, equals)), line.substring(equals + 1));
+                } catch (NumberFormatException ignored) {
+                    // A line that isn't ours: left out.
+                }
+            }
+    }
+
+    public Placed() { this(null, null); }
+
+    /** Records what a block of snow covered. */
+    public void cover(int entry, String blockData) { covered.put(entry, blockData); }
+
+    /** What a block of snow covered, or null; it is forgotten. */
+    public String uncover(int entry) { return covered.remove(entry); }
+
+    /** What the snow covers, to save; null when nothing. */
+    public String coveredText() {
+        if (covered.isEmpty()) return null;
+        StringBuilder text = new StringBuilder();
+        for (java.util.Map.Entry<Integer, String> entry : covered.entrySet()) {
+            if (text.length() > 0) text.append('\n');
+            text.append(entry.getKey()).append('=').append(entry.getValue());
+        }
+        return text.toString();
+    }
 
     /** One block in a number: x and z 0-15, y from -2048 to 2047. */
     public static int pack(int x, int y, int z, What what) {
@@ -55,6 +89,7 @@ public final class Placed {
     }
 
     public boolean remove(int entry) {
+        covered.remove(entry);
         for (int i = 0; i < size; i++)
             if (entries[i] == entry) {
                 entries[i] = entries[--size];
