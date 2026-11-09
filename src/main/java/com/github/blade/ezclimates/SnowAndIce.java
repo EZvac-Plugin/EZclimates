@@ -61,6 +61,10 @@ public final class SnowAndIce implements Listener {
     private int placedTotal, meltedTotal;
 
     private final NamespacedKey coveredKey;
+    /** How much faster snow settles in a world right now: a planned snowstorm's rate, or 1. */
+    private java.util.function.ToDoubleFunction<World> boost = world -> 1.0;
+
+    public void setBoost(java.util.function.ToDoubleFunction<World> boost) { this.boost = boost; }
 
     public SnowAndIce(EzvacApi ezvac, Settings settings, NamespacedKey key, NamespacedKey coveredKey, boolean clearing) {
         this.ezvac = ezvac;
@@ -147,7 +151,9 @@ public final class SnowAndIce implements Listener {
         int radius = settings.snowRadius();
         // Vanilla's pace: each chunk gets a try one tick in 16, times snow.rate, within the budget.
         double chunks = (2.0 * radius + 1) * (2.0 * radius + 1) / 256.0;
-        owed += players.size() * chunks / 16.0 * settings.snowRate();
+        double rate = 0.0;
+        for (Player player : players) rate += boost.applyAsDouble(player.getWorld());
+        owed += rate * chunks / 16.0 * settings.snowRate();
         int tries = (int) Math.min(settings.blocksPerTick(), Math.floor(owed));
         owed = Math.min(owed - tries, settings.blocksPerTick());
         for (int i = 0; i < tries; i++) {
@@ -176,7 +182,9 @@ public final class SnowAndIce implements Listener {
             // Deeper with longer snowfall, but only on its own snow.
             if (!placed.contains(Placed.pack(top.getX() & 15, top.getY(), top.getZ() & 15, Placed.What.SNOW))) return;
             Snow snow = (Snow) top.getBlockData();
-            if (snow.getLayers() >= settings.maxLayers()) return;
+            // A snowstorm piles it a layer deeper.
+            int most = settings.maxLayers() + (boost.applyAsDouble(world) > 1.0 ? 1 : 0);
+            if (snow.getLayers() >= Math.min(8, most)) return;
             snow.setLayers(snow.getLayers() + 1);
             top.setBlockData(snow, false);
             return;

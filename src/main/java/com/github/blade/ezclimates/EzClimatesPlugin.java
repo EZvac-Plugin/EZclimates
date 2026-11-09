@@ -83,7 +83,18 @@ public final class EzClimatesPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(snow, this);
         snow.start(getServer().getWorlds());
         if (clearing) getLogger().info("Still clearing snow and ice (/ezclimates resume to stop).");
+        // The weather engine: plans each seasonal world's weather and drives Minecraft's to match.
+        WeatherSettings weatherSettings = WeatherSettings.load(getConfig().getConfigurationSection("weather"),
+                getLogger()::warning);
+        weather = new WeatherDriver(this, ezvac, weatherSettings, new java.io.File(getDataFolder(), "weather.yml"),
+                getLogger()::warning);
+        if (weather.enabled()) {
+            getServer().getPluginManager().registerEvents(weather, this);
+            ezvac.setWeatherPlan(this, weather);
+            snow.setBoost(weather::snowRate);
+        }
         task = getServer().getScheduler().runTaskTimer(this, () -> {
+            weather.tick(getServer().getWorlds());
             updater.tick(getServer().getWorlds());
             snow.tick(getServer().getWorlds());
         }, 1L, 1L);
@@ -97,7 +108,10 @@ public final class EzClimatesPlugin extends JavaPlugin {
     public void onDisable() {
         if (task != null) task.cancel();
         if (listener != null) PacketEvents.getAPI().getEventManager().unregisterListener(listener);
+        if (weather != null && weather.enabled()) weather.save();
     }
+
+    private WeatherDriver weather;
 
     /** /ezclimates, for admins (ezclimates.admin). */
     private final class Commands implements io.papermc.paper.command.brigadier.BasicCommand {
@@ -109,7 +123,11 @@ public final class EzClimatesPlugin extends JavaPlugin {
         @Override
         public java.util.Collection<String> suggest(io.papermc.paper.command.brigadier.CommandSourceStack source,
                                                     String[] args) {
-            return args.length <= 1 ? List.of("status", "here", "clear", "resume") : List.of();
+            if (args.length <= 1) return List.of("status", "here", "weather", "clear", "resume");
+            if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "replan");
+            if (args[0].equalsIgnoreCase("weather") && args.length == 3 && args[1].equalsIgnoreCase("event"))
+                return List.of("snowstorm", "thunderstorm", "heatwave", "coldsnap");
+            return List.of();
         }
 
         @Override
@@ -133,6 +151,26 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 sender.sendMessage("  Snow and ice in loaded chunks: " + recorded[0] + " snow, " + recorded[1]
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
                         + (snow.clearing() ? ". Clearing: nothing new is placed (/ezclimates resume)." : "."));
+            }
+            case "weather" -> {
+                org.bukkit.World world = sender instanceof org.bukkit.entity.Player player ? player.getWorld()
+                        : getServer().getWorlds().get(0);
+                if (args.length >= 3 && args[1].equalsIgnoreCase("event")) {
+                    double hours = 12.0;
+                    if (args.length >= 4) {
+                        try {
+                            hours = Math.max(1.0, Math.min(240.0, Double.parseDouble(args[3])));
+                        } catch (NumberFormatException notANumber) {
+                            sender.sendMessage("Hours must be a number.");
+                            return;
+                        }
+                    }
+                    sender.sendMessage(weather.start(world, args[2], hours));
+                } else if (args.length >= 2 && args[1].equalsIgnoreCase("replan")) {
+                    sender.sendMessage(weather.replan(world));
+                } else {
+                    for (String line : weather.describe(world)) sender.sendMessage(line);
+                }
             }
             case "here" -> {
                 org.bukkit.Location at;
@@ -165,7 +203,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 saveClearing(false);
                 sender.sendMessage("Snow and ice follow EZvac again.");
             }
-            default -> sender.sendMessage("Usage: /" + label + " status | here | clear | resume");
+            default -> sender.sendMessage("Usage: /" + label + " status | here | weather [event <name> [hours] | replan]"
+                    + " | clear | resume");
         }
     }
 }
