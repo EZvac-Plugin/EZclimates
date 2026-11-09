@@ -261,8 +261,9 @@ public final class WeatherDriver implements WeatherPlan, Listener {
         switch (name.toLowerCase(Locale.ROOT)) {
             case "snowstorm" -> plan.insert(new WeatherPlanner.Front(now, now + length, -1L, true));
             case "thunderstorm" -> plan.insert(new WeatherPlanner.Front(now, now + length, now, false));
-            case "heatwave" -> plan.insert(new WeatherPlanner.Swing(now, now + length, settings.heatWave().maxF()));
-            case "coldsnap" -> plan.insert(new WeatherPlanner.Swing(now, now + length, -settings.coldSnap().maxF()));
+            // Started by hand, at full strength now: its ease in is put in the past.
+            case "heatwave" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, settings.heatWave().maxF()));
+            case "coldsnap" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, -settings.coldSnap().maxF()));
             default -> {
                 return "Events: snowstorm, thunderstorm, heatwave, coldsnap.";
             }
