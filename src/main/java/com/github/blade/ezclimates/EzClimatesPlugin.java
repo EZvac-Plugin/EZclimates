@@ -152,6 +152,23 @@ public final class EzClimatesPlugin extends JavaPlugin {
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
                         + (snow.clearing() ? ". Clearing: nothing new is placed (/ezclimates resume)." : "."));
             }
+            case "debug" -> {
+                if (args.length >= 3 && args[1].equalsIgnoreCase("rewrite")) {
+                    rewriter.enabled = !args[2].equalsIgnoreCase("off");
+                    sender.sendMessage("Chunk rewriting " + (rewriter.enabled ? "on" : "off") + ". Chunks already sent"
+                            + " stay as they were until they're sent again (go far away and back).");
+                } else if (args.length >= 3 && args[1].equalsIgnoreCase("chunks")) {
+                    org.bukkit.entity.Player player = getServer().getPlayerExact(args[2]);
+                    if (player == null) {
+                        sender.sendMessage("No such player online.");
+                        return;
+                    }
+                    rewriter.describe.add(player.getUniqueId());
+                    sender.sendMessage("The next chunk sent to " + player.getName() + " is described in the log.");
+                } else {
+                    sender.sendMessage("Usage: /" + label + " debug rewrite <on|off> | debug chunks <player>");
+                }
+            }
             case "weather" -> {
                 org.bukkit.World world = sender instanceof org.bukkit.entity.Player player ? player.getWorld()
                         : getServer().getWorlds().get(0);
@@ -174,6 +191,14 @@ public final class EzClimatesPlugin extends JavaPlugin {
             }
             case "here" -> {
                 org.bukkit.Location at;
+                // From the console, a player's name looks where they stand, and at what their client was sent.
+                org.bukkit.entity.Player named = args.length >= 2 ? getServer().getPlayerExact(args[1]) : null;
+                if (named != null) {
+                    at = named.getLocation();
+                    for (String line : snow.describe(at.getWorld(), at.getBlockX(), at.getBlockZ())) sender.sendMessage(line);
+                    for (String line : updater.shownTo(named)) sender.sendMessage(line);
+                    return;
+                }
                 if (sender instanceof org.bukkit.entity.Player player) at = player.getLocation();
                 else if (args.length >= 3) {
                     try {

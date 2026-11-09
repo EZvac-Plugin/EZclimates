@@ -278,8 +278,12 @@ public final class SnowAndIce implements Listener {
                 if (Placed.what(entry) == Placed.What.SNOW) {
                     if (block.getType() != Material.SNOW) { placed.remove(entry); changed = true; continue; }
                     if (!clearing) {
+                        // Nothing melts while it's still snowing on it: snow falls up to winter's line
+                        // (40 F), above where melting starts, and the two would fight.
+                        if (ezvac.precipitationAt(world, block.getX(), block.getY(), block.getZ()) == Precipitation.SNOW)
+                            continue;
                         if (Double.isNaN(airF)) airF = ezvac.outdoorAt(block.getLocation()).airF();
-                        if (airF <= THAW_ABOVE_F) continue;
+                        if (!melts(airF, ThreadLocalRandom.current().nextDouble())) continue;
                     }
                     Snow snow = (Snow) block.getBlockData();
                     if (snow.getLayers() > 1 && !clearing) {
@@ -308,6 +312,16 @@ public final class SnowAndIce implements Listener {
             if (changed) save(chunk, placed);
             if (placed.isEmpty()) chunks.remove(next[2]);
         }
+    }
+
+    /**
+     * Whether a look at a block of snow melts a layer: never at or below
+     * 34 F, and above it gradually, the warmer the likelier (every look at
+     * 42 F and up), so a thaw eats the snow over a while rather than at once.
+     */
+    static boolean melts(double airF, double roll) {
+        if (!(airF > THAW_ABOVE_F)) return false;
+        return roll < Math.min(1.0, (airF - THAW_ABOVE_F) / 8.0);
     }
 
     /** The last layer melts: what it buried grows back, or the air returns. */

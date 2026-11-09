@@ -261,4 +261,29 @@ class SeasonsTest {
         assertEquals(placed.size(), again.size(), "as saved in the chunk and read back");
         assertTrue(new Placed(null).isEmpty());
     }
+
+    @Test
+    void aSectionWithManyCopiesListsRegistryNumbersAtTheRegistrysWidth() {
+        // Copies chosen per cell can put more than eight biomes in a section: the client then reads each
+        // cell as a registry number exactly as wide as the registry needs (779 biomes: 10 bits).
+        Map<String, Integer> registry = new HashMap<>();
+        for (int id = 0; id < 779; id++) registry.put("minecraft:filler_" + id, id);
+        String[] names = {"plains", "forest", "river", "taiga"};
+        int next = 600;
+        for (String name : names) {
+            registry.put("minecraft:" + name, java.util.Arrays.asList(names).indexOf(name) + 10);
+            for (String path : BiomeCopies.of(name, PLAINS, Palette.defaults()).keySet()) registry.put("ezclimates:" + path, next++);
+        }
+        IdMap map = IdMap.of(registry);
+        assertEquals(10, map.bits());
+        int[] cells = new int[64];
+        for (int c = 0; c < 64; c++) cells[c] = 10 + c % 4;
+        DataPalette section = LookUpdater.palette(cells, 10);
+        float[] lines = new float[16];
+        for (int c = 0; c < 16; c++) lines[c] = c % 3 == 0 ? Float.NEGATIVE_INFINITY : c % 3 == 1 ? Float.POSITIVE_INFINITY : Float.NaN;
+        ChunkRewriter.rewrite(section, map, Stage.WINTER, lines, -64);
+        assertInstanceOf(GlobalPalette.class, section.palette, "more than eight: registry numbers");
+        assertEquals(10, section.storage.getBitsPerEntry(), "at the registry's width, not packetevents' own");
+        assertEquals(map.map(10, Stage.WINTER, Kind.SNOW), section.get(0, 0, 0));
+    }
 }

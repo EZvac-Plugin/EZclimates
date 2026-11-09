@@ -35,6 +35,10 @@ public final class ChunkRewriter implements PacketListener {
     private final Consumer<String> warn;
     private final ConcurrentHashMap<UUID, IdMap> ids = new ConcurrentHashMap<>();
     private volatile boolean warned;
+    /** Off: chunks go to players as the server made them (/ezclimates debug rewrite off). */
+    public volatile boolean enabled = true;
+    /** Players whose first rewritten chunk was described in the log (/ezclimates debug chunks). */
+    public final java.util.Set<UUID> describe = ConcurrentHashMap.newKeySet();
 
     public ChunkRewriter(Looks looks, Consumer<String> warn) {
         this.looks = looks;
@@ -68,6 +72,7 @@ public final class ChunkRewriter implements PacketListener {
     public void onPacketSend(PacketSendEvent event) {
         boolean data = event.getPacketType() == PacketType.Play.Server.CHUNK_DATA;
         if (!data && event.getPacketType() != PacketType.Play.Server.CHUNK_BIOMES) return;
+        if (!enabled) return;
         try {
             User user = event.getUser();
             UUID player = user == null ? null : user.getUUID();
@@ -80,8 +85,17 @@ public final class ChunkRewriter implements PacketListener {
             Stage stage = look.stage;
             ConcurrentHashMap<Long, Looks.Look> sent = looks.sent.computeIfAbsent(player, ignored -> new ConcurrentHashMap<>());
             if (data) {
+                int bytesIn = com.github.retrooper.packetevents.netty.buffer.ByteBufHelper.readableBytes(event.getByteBuf());
                 WrapperPlayServerChunkData wrapper = new WrapperPlayServerChunkData(event);
                 Column column = wrapper.getColumn();
+                if (describe.remove(player))
+                    warn.accept("Chunk " + column.getX() + "," + column.getZ() + " for " + player + ": " + bytesIn
+                            + " bytes in, " + column.getChunks().length + " sections, heightmaps "
+                            + (column.getHeightmaps() == null ? "none" : column.getHeightmaps().entrySet().stream()
+                            .map(e -> e.getKey() + "=" + e.getValue().length + " longs, first " + (e.getValue().length > 0
+                                    ? Long.toHexString(e.getValue()[0]) : "-")).toList())
+                            + ", old-style heightmaps " + (column.getHeightMaps() == null ? "none" : "present")
+                            + ", client " + user.getClientVersion());
                 long key = Looks.chunkKey(column.getX(), column.getZ());
                 float[] lines = look.lines.get(key);
                 BaseChunk[] sections = column.getChunks();
@@ -115,16 +129,28 @@ public final class ChunkRewriter implements PacketListener {
     /**
      * Swaps each of a section's 64 biome cells for its copy, each cell by its
      * own column's snow line ({@code lines}, null for each biome's own
-     * weather) at the cell's middle height; the section starts at {@code baseY}.
+     * weather) at the cell's middle height; the section starts at
+     * {@code baseY}. The section is written afresh rather than edited in
+     * place: with copies chosen per cell it can hold more than eight biomes,
+     * and then it must list registry numbers at exactly the registry's own
+     * width, which the vanilla client insists on.
      */
     static void rewrite(DataPalette biomes, IdMap map, Stage stage, float[] lines, int baseY) {
+        int[] cells = new int[64];
+        boolean changed = false;
+        int i = 0;
         for (int y = 0; y < 4; y++)
             for (int z = 0; z < 4; z++)
                 for (int x = 0; x < 4; x++) {
                     int from = biomes.get(x, y, z);
                     int to = map.map(from, stage, Looks.kind(lines, x, z, baseY + y * 4 + 2));
-                    if (to != from) biomes.set(x, y, z, to);
+                    changed |= to != from;
+                    cells[i++] = to;
                 }
+        if (!changed) return;
+        DataPalette written = LookUpdater.palette(cells, map.bits());
+        biomes.palette = written.palette;
+        biomes.storage = written.storage;
     }
 
     private static final Field SECTIONS;
