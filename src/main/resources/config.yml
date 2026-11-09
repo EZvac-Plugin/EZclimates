@@ -75,6 +75,51 @@ snow:
 ice:
   enabled: true
 
+# The weather: EZclimates plans each seasonal world's weather days ahead and
+# drives Minecraft's to match, so weather stations' forecasts come true.
+# Fronts bring rain or snow between dry spells, by each season's odds; some
+# bring thunder; some winter fronts are snowstorms (heavy snow, a gale, a
+# dark sky, no lightning); and heat waves and cold snaps move EZvac's air
+# for days, which rooms, HVAC, rain or snow and lakes all feel. Minecraft's
+# own random weather is stopped; /weather still works and the plan takes it
+# in, and so does sleeping through a storm. /ezclimates weather shows the
+# plan. enabled: false leaves Minecraft's weather alone.
+weather:
+  enabled: true
+  # Each season: dry spells between fronts (days), a front's length
+  # (in-game hours), and the share of fronts that bring thunder.
+  seasons:
+    spring: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 6, max: 18 }, thunder: 0.25 }
+    summer: { dry-days: { min: 2.0, max: 5.0 }, front-hours: { min: 2, max: 8 }, thunder: 0.55 }
+    autumn: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 8, max: 24 }, thunder: 0.15 }
+    winter: { dry-days: { min: 2.0, max: 4.0 }, front-hours: { min: 8, max: 30 }, thunder: 0.05 }
+  snowstorm:
+    # The share of winter's fronts that are snowstorms.
+    share-of-winter-fronts: 0.35
+    # How much faster snow settles in one, and how dark its sky is (0 to 1).
+    snow-rate: 4.0
+    sky: 0.7
+  # Days well above the season's usual air (heat waves) or below it (cold
+  # snaps): the chance one starts on a day, each season; how many days it
+  # lasts; and how far it moves the air at its peak, in F.
+  heat-wave:
+    chance-per-day: { spring: 0.02, summer: 0.06, autumn: 0.02, winter: 0.0 }
+    days: { min: 3, max: 6 }
+    strength-f: { min: 8, max: 15 }
+  cold-snap:
+    chance-per-day: { spring: 0.02, summer: 0.0, autumn: 0.02, winter: 0.06 }
+    days: { min: 3, max: 6 }
+    strength-f: { min: 8, max: 15 }
+  # How sure forecasts are. The plan never changes for exact-days (today
+  # counts as one); each morning, a day after those may be planned afresh
+  # (revise-chance), and the chances a station shows lean toward the
+  # season's usual odds by certainty-loss-per-day for each day further out.
+  # exact-days: 7 and revise-chance: 0 make every forecast exact.
+  forecast:
+    exact-days: 2
+    revise-chance: 0.3
+    certainty-loss-per-day: 0.15
+
 # How much work each tick may do. Snow lines are worked out for the chunks
 # round players (snow-lines-per-tick counts chunks, 16 lines each: rain and
 # snow meet along EZvac's own wavy edge, 4 blocks at a time); when one changes (rain turning to snow, a new stage), the

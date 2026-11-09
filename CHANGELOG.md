@@ -10,6 +10,10 @@ The first release: seasons you can see, from EZvac's climate.
   unheated pools), recorded in each chunk so it always melts.
 - The world keeps its own biomes: only what players are sent changes, and
   chunks players have are resent when the look changes.
-- `/ezclimates status`, `here`, `clear` and `resume`.
+- The weather planned days ahead and Minecraft's driven to match: fronts by
+  season, thunderstorm fronts, winter snowstorms (heavy snow, a gale, a dark
+  sky, no lightning), heat waves and cold snaps. EZvac's stations forecast
+  from the plan, sure for today and tomorrow and less so further out.
+- `/ezclimates status`, `here`, `weather`, `clear` and `resume`.
 - Needs Paper or Purpur 26.1+, EZvac BETA 1.0 Pilot 4 (API 1.9) and
   packetevents 2.14.0.

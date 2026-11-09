@@ -167,4 +167,21 @@ class WeatherPlannerTest {
         plan.cut(26 * HOUR);
         assertEquals(2, plan.fronts().size(), "a cut keeps what began before it");
     }
+
+    @Test
+    void theBundledConfigIsTheDefaultsAndBadValuesKeepThem() throws Exception {
+        org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();
+        try (var input = getClass().getResourceAsStream("/config.yml")) {
+            config.loadFromString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+        }
+        java.util.List<String> warnings = new java.util.ArrayList<>();
+        assertEquals(WeatherSettings.defaults(), WeatherSettings.load(config.getConfigurationSection("weather"), warnings::add));
+        assertEquals(java.util.List.of(), warnings);
+        config.set("weather.forecast.exact-days", 12);
+        config.set("weather.seasons.winter.front-hours.max", 2);
+        WeatherSettings bad = WeatherSettings.load(config.getConfigurationSection("weather"), warnings::add);
+        assertEquals(2, bad.exactDays());
+        assertEquals(30, bad.season(SeasonView.Season.WINTER).frontMaxHours());
+        assertEquals(2, warnings.size(), String.valueOf(warnings));
+    }
 }
