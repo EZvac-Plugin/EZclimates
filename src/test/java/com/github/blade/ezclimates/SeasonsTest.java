@@ -150,16 +150,27 @@ class SeasonsTest {
         assertEquals(-1, map.id("minecraft:nowhere"));
     }
 
+    private static float[] lines(float line) {
+        float[] lines = new float[16];
+        java.util.Arrays.fill(lines, line);
+        return lines;
+    }
+
     @Test
-    void looksCompareSectionBySection() {
-        long a = Looks.look(Stage.WINTER, 100f), b = Looks.look(Stage.WINTER, 103f);
-        assertTrue(Looks.same(a, b, -64, 384), "no section's middle lies between 100 and 103");
-        assertFalse(Looks.same(a, Looks.look(Stage.WINTER, 110f), -64, 384), "the section at 104 turns");
-        assertFalse(Looks.same(a, Looks.look(Stage.SPRING, 100f), -64, 384));
-        assertFalse(Looks.same(Looks.ORIGINAL, Looks.look(Stage.SUMMER, Float.NaN), -64, 384));
-        assertEquals(Stage.WINTER, Looks.stage(a));
-        assertEquals(100f, Looks.line(a));
-        assertNull(Looks.line(Looks.ORIGINAL));
+    void looksCompareCellByCell() {
+        Looks.Look a = new Looks.Look(Stage.WINTER, lines(100f)), b = new Looks.Look(Stage.WINTER, lines(101f));
+        assertTrue(Looks.same(a, b, -64, 384), "no cell's middle (every 4 blocks, at 98, 102...) lies between 100 and 101");
+        assertFalse(Looks.same(a, new Looks.Look(Stage.WINTER, lines(103f)), -64, 384), "the cell at 102 turns");
+        assertFalse(Looks.same(a, new Looks.Look(Stage.SPRING, lines(100f)), -64, 384));
+        float[] one = lines(100f);
+        one[5] = Float.NEGATIVE_INFINITY;
+        assertFalse(Looks.same(a, new Looks.Look(Stage.WINTER, one), -64, 384), "one column snowing is a change");
+        assertFalse(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, lines(Float.NaN)), -64, 384));
+        assertTrue(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, null), -64, 384));
+        assertEquals(Kind.SNOW, Looks.kind(one, 1, 1, -60), "cell x 1, z 1 is line 5");
+        assertEquals(Kind.RAIN, Looks.kind(one, 0, 1, -60));
+        assertNull(Looks.kind(null, 0, 0, 64), "no lines: the biome's own weather");
+        assertEquals(6, Looks.cellMiddle(1));
         assertEquals(-5, Looks.chunkX(Looks.chunkKey(-5, 7)));
         assertEquals(7, Looks.chunkZ(Looks.chunkKey(-5, 7)));
     }
@@ -187,8 +198,13 @@ class SeasonsTest {
         registry.put("ezclimates:plains/winter_snow", 77);
         registry.put("ezclimates:plains/summer_snow", 78);
         registry.put("ezclimates:plains/summer_dry", 79);
-        ChunkRewriter.rewrite(rewritten, IdMap.of(registry), Stage.WINTER, Kind.SNOW);
+        registry.put("ezclimates:plains/winter_dry", 80);
+        // Each cell by its own column's line: snow everywhere but the column at x 3, z 0, which rain doesn't reach.
+        float[] edge = lines(Float.NEGATIVE_INFINITY);
+        edge[3] = Float.NaN;
+        ChunkRewriter.rewrite(rewritten, IdMap.of(registry), Stage.WINTER, edge, -64);
         assertEquals(77, rewritten.get(2, 1, 0));
+        assertEquals(80, rewritten.get(3, 1, 0), "the dry column");
     }
 
     @Test

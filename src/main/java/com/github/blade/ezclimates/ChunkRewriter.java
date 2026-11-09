@@ -78,27 +78,27 @@ public final class ChunkRewriter implements PacketListener {
             IdMap map = ids(user);
             if (map == null || map.isEmpty()) return;
             Stage stage = look.stage;
-            ConcurrentHashMap<Long, Long> sent = looks.sent.computeIfAbsent(player, ignored -> new ConcurrentHashMap<>());
+            ConcurrentHashMap<Long, Looks.Look> sent = looks.sent.computeIfAbsent(player, ignored -> new ConcurrentHashMap<>());
             if (data) {
                 WrapperPlayServerChunkData wrapper = new WrapperPlayServerChunkData(event);
                 Column column = wrapper.getColumn();
                 long key = Looks.chunkKey(column.getX(), column.getZ());
-                Float line = look.lines.get(key);
+                float[] lines = look.lines.get(key);
                 BaseChunk[] sections = column.getChunks();
                 for (int i = 0; i < sections.length; i++)
                     if (sections[i] instanceof Chunk_v1_18 section && section.getBiomeData() != null)
-                        rewrite(section.getBiomeData(), map, stage, Looks.kind(line, look.minY + 16 * i + 8));
+                        rewrite(section.getBiomeData(), map, stage, lines, look.minY + 16 * i);
                 event.markForReEncode(true);
-                sent.put(key, Looks.look(stage, line));
+                sent.put(key, new Looks.Look(stage, lines));
             } else {
                 WrapperPlayServerChunkBiomes wrapper = new WrapperPlayServerChunkBiomes(event);
                 for (Map.Entry<Vector2i, WrapperPlayServerChunkBiomes.ChunkBiomeData> chunk : wrapper.getChunks().entrySet()) {
                     long key = Looks.chunkKey(chunk.getKey().getX(), chunk.getKey().getZ());
-                    Float line = look.lines.get(key);
+                    float[] lines = look.lines.get(key);
                     List<DataPalette> sections = sections(chunk.getValue());
                     for (int i = 0; i < sections.size(); i++)
-                        rewrite(sections.get(i), map, stage, Looks.kind(line, look.minY + 16 * i + 8));
-                    sent.put(key, Looks.look(stage, line));
+                        rewrite(sections.get(i), map, stage, lines, look.minY + 16 * i);
+                    sent.put(key, new Looks.Look(stage, lines));
                 }
                 event.markForReEncode(true);
             }
@@ -112,20 +112,17 @@ public final class ChunkRewriter implements PacketListener {
         }
     }
 
-    /** Swaps each of a section's 64 biome cells for its copy. */
-    static void rewrite(DataPalette biomes, IdMap map, Stage stage, Kind kind) {
-        int lastFrom = Integer.MIN_VALUE, lastTo = 0;
+    /**
+     * Swaps each of a section's 64 biome cells for its copy, each cell by its
+     * own column's snow line ({@code lines}, null for each biome's own
+     * weather) at the cell's middle height; the section starts at {@code baseY}.
+     */
+    static void rewrite(DataPalette biomes, IdMap map, Stage stage, float[] lines, int baseY) {
         for (int y = 0; y < 4; y++)
             for (int z = 0; z < 4; z++)
                 for (int x = 0; x < 4; x++) {
                     int from = biomes.get(x, y, z);
-                    int to;
-                    if (from == lastFrom) to = lastTo;
-                    else {
-                        to = map.map(from, stage, kind);
-                        lastFrom = from;
-                        lastTo = to;
-                    }
+                    int to = map.map(from, stage, Looks.kind(lines, x, z, baseY + y * 4 + 2));
                     if (to != from) biomes.set(x, y, z, to);
                 }
     }

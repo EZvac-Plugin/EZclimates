@@ -76,12 +76,13 @@ ice:
   enabled: true
 
 # How much work each tick may do. Snow lines are worked out for the chunks
-# round players; when one changes (rain turning to snow, a new stage), the
+# round players (snow-lines-per-tick counts chunks, 16 lines each: rain and
+# snow meet along EZvac's own wavy edge, 4 blocks at a time); when one changes (rain turning to snow, a new stage), the
 # chunks players already have are resent, nearest first. Snow and ice look
 # at a few columns round players for new snow and ice, and at a few
 # recorded blocks to melt.
 budget:
-  snow-lines-per-tick: 200
+  snow-lines-per-tick: 40
   chunks-resent-per-tick: 12
   blocks-per-tick: 24
   records-per-tick: 64

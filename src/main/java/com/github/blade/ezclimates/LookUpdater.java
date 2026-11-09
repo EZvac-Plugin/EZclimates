@@ -128,7 +128,7 @@ public final class LookUpdater implements Listener {
         long key = Looks.chunkKey(event.getChunk().getX(), event.getChunk().getZ());
         LongOpenHashSet chunks = loaded.get(event.getPlayer().getUniqueId());
         if (chunks != null) chunks.remove(key);
-        Map<Long, Long> sent = looks.sent.get(event.getPlayer().getUniqueId());
+        Map<Long, Looks.Look> sent = looks.sent.get(event.getPlayer().getUniqueId());
         if (sent != null) sent.remove(key);
     }
 
@@ -201,8 +201,14 @@ public final class LookUpdater implements Listener {
         for (long[] entry : wanted) {
             if (budget <= 0) break;
             long key = entry[0];
-            double line = ezvac.snowLineAt(world, Looks.chunkX(key) * 16 + 8, Looks.chunkZ(key) * 16 + 8);
-            look.lines.put(key, (float) line);
+            // One line per 4x4 column of biome cells, so rain meets snow along EZvac's own edge.
+            float[] lines = new float[Looks.CELLS * Looks.CELLS];
+            int baseX = Looks.chunkX(key) * 16, baseZ = Looks.chunkZ(key) * 16;
+            for (int cz = 0; cz < Looks.CELLS; cz++)
+                for (int cx = 0; cx < Looks.CELLS; cx++)
+                    lines[cz * Looks.CELLS + cx] = (float) ezvac.snowLineAt(world, baseX + Looks.cellMiddle(cx),
+                            baseZ + Looks.cellMiddle(cz));
+            look.lines.put(key, lines);
             when.put(key, tick);
             budget--;
         }
@@ -218,14 +224,14 @@ public final class LookUpdater implements Listener {
     private void resend(Player player, World world, Looks.WorldLook look) {
         LongOpenHashSet chunks = loaded.get(player.getUniqueId());
         if (chunks == null || chunks.isEmpty()) return;
-        ConcurrentHashMap<Long, Long> sent = looks.sent.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>());
+        ConcurrentHashMap<Long, Looks.Look> sent = looks.sent.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>());
         Stage stage = look.stage;
         int px = player.getLocation().getBlockX() >> 4, pz = player.getLocation().getBlockZ() >> 4;
         List<long[]> stale = new ArrayList<>();
         for (long key : chunks) {
-            long now = Looks.look(stage, look.lines.get(key));
-            Long before = sent.get(key);
-            if (Looks.same(before == null ? Looks.ORIGINAL : before, now, look.minY, look.height)) continue;
+            Looks.Look now = new Looks.Look(stage, look.lines.get(key));
+            Looks.Look before = sent.get(key);
+            if (Looks.same(before == null ? Looks.Look.ORIGINAL : before, now, look.minY, look.height)) continue;
             long dx = Looks.chunkX(key) - px, dz = Looks.chunkZ(key) - pz;
             stale.add(new long[]{key, dx * dx + dz * dz});
         }
@@ -239,9 +245,9 @@ public final class LookUpdater implements Listener {
             if (batch.size() >= settings.chunksPerTick()) break;
             int cx = Looks.chunkX(entry[0]), cz = Looks.chunkZ(entry[0]);
             if (!world.isChunkLoaded(cx, cz)) continue;
-            Float line = look.lines.get(entry[0]);
-            batch.put(new Vector2i(cx, cz), ChunkRewriter.data(sections(world.getChunkAt(cx, cz), look, map, stage, line)));
-            sent.put(entry[0], Looks.look(stage, line));
+            float[] lines = look.lines.get(entry[0]);
+            batch.put(new Vector2i(cx, cz), ChunkRewriter.data(sections(world.getChunkAt(cx, cz), look, map, stage, lines)));
+            sent.put(entry[0], new Looks.Look(stage, lines));
         }
         if (batch.isEmpty()) return;
         // Silently: these already show the copies, so the rewriter leaves them alone.
@@ -250,13 +256,12 @@ public final class LookUpdater implements Listener {
     }
 
     /** A loaded chunk's biomes as the player should see them, section by section. */
-    static List<DataPalette> sections(Chunk chunk, Looks.WorldLook look, IdMap map, Stage stage, Float line) {
+    static List<DataPalette> sections(Chunk chunk, Looks.WorldLook look, IdMap map, Stage stage, float[] lines) {
         ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, true, false);
         Map<Biome, Integer> numbers = new HashMap<>();
         List<DataPalette> sections = new ArrayList<>(look.height / 16);
         for (int section = 0; section < look.height / 16; section++) {
             int baseY = look.minY + section * 16;
-            Kind kind = Looks.kind(line, baseY + 8);
             int[] cells = new int[64];
             int i = 0;
             for (int y = 0; y < 4; y++)
@@ -264,7 +269,7 @@ public final class LookUpdater implements Listener {
                     for (int x = 0; x < 4; x++) {
                         Biome biome = snapshot.getBiome(x * 4, baseY + y * 4, z * 4);
                         int original = numbers.computeIfAbsent(biome, b -> map.id(b.getKey().toString()));
-                        cells[i++] = original < 0 ? 0 : map.map(original, stage, kind);
+                        cells[i++] = original < 0 ? 0 : map.map(original, stage, Looks.kind(lines, x, z, baseY + y * 4 + 2));
                     }
             sections.add(palette(cells, map.bits()));
         }
@@ -311,17 +316,18 @@ public final class LookUpdater implements Listener {
         }
         int x = player.getLocation().getBlockX(), y = player.getLocation().getBlockY(), z = player.getLocation().getBlockZ();
         long key = Looks.chunkKey(x >> 4, z >> 4);
-        int sectionMiddle = look.minY + Math.floorDiv(y - look.minY, 16) * 16 + 8;
+        int cellMiddle = Math.floorDiv(y, 4) * 4 + 2, cellX = (x & 15) >> 2, cellZ = (z & 15) >> 2;
         String biome = world.getBiome(x, y, z).getKey().toString();
         int original = map.id(biome);
-        Map<Long, Long> sentTo = looks.sent.get(player.getUniqueId());
-        Long sent = sentTo == null ? null : sentTo.get(key);
-        long now = Looks.look(look.stage, look.lines.get(key));
-        lines.add("The world's biome here: " + biome + ". Stage " + look.stage.key() + "; this chunk's snow line "
-                + look.lines.get(key) + ".");
+        Map<Long, Looks.Look> sentTo = looks.sent.get(player.getUniqueId());
+        Looks.Look sent = sentTo == null ? null : sentTo.get(key);
+        Looks.Look now = new Looks.Look(look.stage, look.lines.get(key));
+        float[] known = look.lines.get(key);
+        lines.add("The world's biome here: " + biome + ". Stage " + look.stage.key() + "; the snow line over you "
+                + (known == null ? "not worked out yet" : String.valueOf(known[cellZ * Looks.CELLS + cellX])) + ".");
         if (sent == null) lines.add("Your client was sent this chunk as it is (" + biome + ").");
-        else lines.add("Your client was sent: " + map.name(map.map(original, Looks.stage(sent),
-                Looks.kind(Looks.line(sent), sectionMiddle))) + (Looks.same(sent, now, look.minY, look.height)
+        else lines.add("Your client was sent: " + map.name(map.map(original, sent.stage(),
+                Looks.kind(sent.lines(), cellX, cellZ, cellMiddle))) + (Looks.same(sent, now, look.minY, look.height)
                 ? "" : " (out of date: a resend is on its way)") + ". F3 should show the same.");
         return lines;
     }
