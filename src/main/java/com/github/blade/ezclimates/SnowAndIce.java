@@ -291,9 +291,8 @@ public final class SnowAndIce implements Listener {
             if (above.getBlockData() instanceof org.bukkit.block.data.Bisected && upper.getType() == above.getType())
                 coveredTop = upper.getBlockData().getAsString();
         } else if (!above.getType().isAir()) return;
-        // Snow lies where vanilla's would: on a solid top, on grass, or on leaves.
-        if (!top.getBlockData().isFaceSturdy(BlockFace.UP, org.bukkit.block.BlockSupport.FULL)
-                && !org.bukkit.Tag.LEAVES.isTagged(top.getType())) return;
+        // Snow lies only where vanilla's could: never on ice or packed ice, fine on leaves.
+        if (!above.canPlace(snow)) return;
         int entry = Placed.pack(above.getX() & 15, above.getY(), above.getZ() & 15, Placed.What.SNOW);
         if (coveredTop != null) above.getRelative(BlockFace.UP).setType(Material.AIR, false);
         above.setBlockData(snow, false);
@@ -426,6 +425,14 @@ public final class SnowAndIce implements Listener {
                 Block block = chunk.getBlock(Placed.x(entry), Placed.y(entry), Placed.z(entry));
                 if (Placed.what(entry) == Placed.What.SNOW) {
                     if (block.getType() != Material.SNOW) { placed.remove(entry); changed = true; continue; }
+                    // Snow that can't lie where it is (on ice, or over ice that thawed) goes at once.
+                    if (!block.canPlace(Material.SNOW.createBlockData())) {
+                        uncover(block, placed.uncover(entry));
+                        placed.remove(entry);
+                        meltedTotal++;
+                        changed = true;
+                        continue;
+                    }
                     if (!clearing) {
                         // Nothing melts while it's still snowing on it: snow falls up to winter's line
                         // (40 F), above where melting starts, and the two would fight.
