@@ -177,6 +177,15 @@ public final class EzClimatesPlugin extends JavaPlugin {
                     rewriter.enabled = !args[2].equalsIgnoreCase("off");
                     sender.sendMessage("Chunk rewriting " + (rewriter.enabled ? "on" : "off") + ". Chunks already sent"
                             + " stay as they were until they're sent again (go far away and back).");
+                } else if (args.length >= 3 && args[1].equalsIgnoreCase("cover")) {
+                    org.bukkit.entity.Player player = getServer().getPlayerExact(args[2]);
+                    if (player == null) {
+                        sender.sendMessage("No such player online.");
+                        return;
+                    }
+                    int radius = args.length >= 4 ? Math.max(4, Math.min(64, Integer.parseInt(args[3]))) : 24;
+                    for (String line : snow.cover(player.getWorld(), player.getLocation().getBlockX(),
+                            player.getLocation().getBlockZ(), radius)) sender.sendMessage(line);
                 } else if (args.length >= 3 && args[1].equalsIgnoreCase("chunks")) {
                     org.bukkit.entity.Player player = getServer().getPlayerExact(args[2]);
                     if (player == null) {
@@ -186,7 +195,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
                     rewriter.describe.add(player.getUniqueId());
                     sender.sendMessage("The next chunk sent to " + player.getName() + " is described in the log.");
                 } else {
-                    sender.sendMessage("Usage: /" + label + " debug rewrite <on|off> | debug chunks <player>");
+                    sender.sendMessage("Usage: /" + label + " debug rewrite <on|off> | debug chunks <player> | debug cover <player> [radius]");
                 }
             }
             case "weather" -> {

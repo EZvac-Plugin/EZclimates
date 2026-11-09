@@ -532,6 +532,41 @@ public final class SnowAndIce implements Listener {
         return new int[]{snow, ice};
     }
 
+    /**
+     * The columns round a spot, for /ezclimates debug cover: how many have
+     * snow, and what is on top of the bare ones, and why snow doesn't lie there.
+     */
+    public List<String> cover(World world, int cx, int cz, int radius) {
+        int snowed = 0, bare = 0;
+        Map<String, Integer> reasons = new java.util.TreeMap<>();
+        BlockData snow = Material.SNOW.createBlockData();
+        for (int x = cx - radius; x <= cx + radius; x++)
+            for (int z = cz - radius; z <= cz + radius; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
+                Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
+                Block above = top.getRelative(BlockFace.UP);
+                if (above.getType() == Material.SNOW || top.getType() == Material.SNOW || top.getType() == Material.SNOW_BLOCK) {
+                    snowed++;
+                    continue;
+                }
+                bare++;
+                String why;
+                if (top.getType() == Material.WATER) why = "water";
+                else if (fallingAt(world, x, top.getY() + 1, z) != Precipitation.SNOW) why = "not snowing there";
+                else if (!above.getType().isAir() && !covers(above.getType())) why = "under " + above.getType().getKey().getKey();
+                else if (!above.canPlace(snow)) why = "snow can't lie on " + top.getType().getKey().getKey();
+                else why = "not reached yet";
+                reasons.merge(why, 1, Integer::sum);
+            }
+        List<String> lines = new ArrayList<>();
+        int total = snowed + bare;
+        lines.add(String.format(java.util.Locale.ROOT, "%d of %d columns within %d blocks have snow (%.0f%%).", snowed,
+                total, radius, total == 0 ? 0.0 : 100.0 * snowed / total));
+        reasons.entrySet().stream().sorted((a, b) -> b.getValue() - a.getValue()).limit(8)
+                .forEach(e -> lines.add("  bare, " + e.getKey() + ": " + e.getValue()));
+        return lines;
+    }
+
     /** What EZclimates sees at a column, for /ezclimates here. */
     public List<String> describe(World world, int x, int z) {
         List<String> lines = new ArrayList<>();
