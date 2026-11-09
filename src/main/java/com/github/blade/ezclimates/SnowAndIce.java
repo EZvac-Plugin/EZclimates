@@ -306,14 +306,73 @@ public final class SnowAndIce implements Listener {
     private void freeze(Block water) {
         if (!(water.getBlockData() instanceof Levelled level) || level.getLevel() != 0) return;
         if (!water.getRelative(BlockFace.UP).getType().isAir()) return;
-        if (waterF(water) > freezesAtF(water)) return;
+        Placed.What what;
+        if (heatedPool(water)) return;
+        if (waterF(water) <= freezesAtF(water)) {
+            what = Placed.What.ICE;
+        } else {
+            // Skim ice: a hard frost ices over shallow water and edges, even where the water below is warmer.
+            if (!settings.skimIce() || sea(water)) return;
+            boolean edge = edge(water), shallow = edge || depth(water) <= SHALLOW_BLOCKS;
+            if (!shallow) return;
+            double airF = ezvac.outdoorAt(water.getLocation().add(0.5, 1.0, 0.5)).airF();
+            if (!skims(airF, settings.skimBelowF(), edge, ThreadLocalRandom.current().nextDouble())) return;
+            what = Placed.What.SKIM;
+        }
         // Never round a boat, a swimmer or anything else in it.
         if (!water.getWorld().getNearbyEntities(BoundingBox.of(water).expand(0.0, 0.0, 0.0, 0.0, 1.0, 0.0)).isEmpty()) return;
         Placed placed = placedIn(water.getChunk(), true);
         water.setType(Material.ICE, false);
-        placed.add(Placed.pack(water.getX() & 15, water.getY(), water.getZ() & 15, Placed.What.ICE));
+        placed.add(Placed.pack(water.getX() & 15, water.getY(), water.getZ() & 15, what));
         save(water.getChunk(), placed);
         placedTotal++;
+    }
+
+    /** Water this deep or less is shallow, and skims over in a hard frost. */
+    static final int SHALLOW_BLOCKS = 3;
+
+    /**
+     * Whether a look at shallow still water in a hard frost ices it over:
+     * never above {@code skimBelowF}, and below it likelier the colder it
+     * is; an edge (water beside the bank) twice as likely as open shallows,
+     * so ponds and lake edges ice first and it spreads the longer it lasts.
+     */
+    static boolean skims(double airF, double skimBelowF, boolean edge, double roll) {
+        if (!(airF < skimBelowF)) return false;
+        double chance = Math.min(1.0, 0.1 + (skimBelowF - airF) / 10.0);
+        return roll < (edge ? chance : chance / 2.0);
+    }
+
+    /** Water beside something that isn't water or ice: the bank, where ice starts. */
+    private static boolean edge(Block water) {
+        for (BlockFace face : new BlockFace[]{BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST}) {
+            Material beside = water.getRelative(face).getType();
+            if (beside != Material.WATER && beside != Material.ICE) return true;
+        }
+        return false;
+    }
+
+    /** How deep the water is below this block, counting it, up to one more than shallow. */
+    private static int depth(Block water) {
+        int depth = 1;
+        Block below = water.getRelative(BlockFace.DOWN);
+        while (depth <= SHALLOW_BLOCKS && below.getType() == Material.WATER) {
+            depth++;
+            below = below.getRelative(BlockFace.DOWN);
+        }
+        return depth;
+    }
+
+    private static boolean sea(Block water) {
+        String biome = water.getBiome().getKey().getKey();
+        return biome.contains("ocean") || biome.contains("beach");
+    }
+
+    /** A pool a system keeps warm: it never freezes or skims. */
+    private boolean heatedPool(Block water) {
+        ClimateReading reading = ezvac.readingAt(water.getLocation().add(0.5, 0.5, 0.5));
+        return reading.inWater() && reading.system().isPresent() && reading.influence() > 0.0
+                && reading.temperatureF() > LIQUID_MINIMUM_F + 0.5;
     }
 
     /** EZvac holds liquid water at this or warmer; a pool kept above it is being heated. */
@@ -391,7 +450,13 @@ public final class SnowAndIce implements Listener {
                         Block below = block.getRelative(BlockFace.DOWN);
                         double waterF = below.getType() == Material.WATER ? waterF(below)
                                 : ezvac.freezingWaterF(world, block.getX(), block.getY(), block.getZ());
+                        // Ice the water's cold made stays while the water is that cold.
                         if (waterF <= THAW_ABOVE_F) continue;
+                        // Skim ice goes as the air warms, gradually, like snow.
+                        if (Placed.what(entry) == Placed.What.SKIM) {
+                            double air = ezvac.outdoorAt(block.getLocation().add(0.5, 1.0, 0.5)).airF();
+                            if (!melts(air, ThreadLocalRandom.current().nextDouble())) continue;
+                        }
                     }
                     block.setType(Material.WATER, false);
                     placed.remove(entry);

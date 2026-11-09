@@ -76,6 +76,13 @@ snow:
 # a swimmer.
 ice:
   enabled: true
+  # Skim ice: a hard frost ices over shallow still water (3 blocks deep or
+  # less) and the edges of ponds and lakes, even where the water below is
+  # still warmer, the colder the faster, spreading the longer it lasts. It
+  # melts as the air warms past 34 F. The sea and heated pools never skim.
+  skim:
+    enabled: true
+    below-f: 25.0
 
 # The weather: EZclimates plans each seasonal world's weather days ahead and
 # drives Minecraft's to match, so weather stations' forecasts come true.

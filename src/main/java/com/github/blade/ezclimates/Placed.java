@@ -10,7 +10,8 @@ import java.util.Arrays;
  * biomes and the world's own ice are never touched.
  */
 public final class Placed {
-    public enum What { SNOW, ICE }
+    /** Snow, ice frozen by the water's own cold, or skim ice frozen by a hard frost (melts by the air). */
+    public enum What { SNOW, ICE, SKIM }
 
     private int[] entries;
     private int size;

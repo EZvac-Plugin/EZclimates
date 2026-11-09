@@ -13,6 +13,8 @@ import java.util.function.Consumer;
  * @param colours        seasonal leaf and grass colours
  * @param snow           snow settles where it snows, and melts
  * @param ice            water freezes where it's cold enough, and thaws
+ * @param skimIce        a hard frost ices over shallow still water and edges
+ * @param skimBelowF     skim ice forms where the air is colder than this, in F
  * @param snowRadius     how far round players snow and ice are placed, in blocks; 0 for the server's simulation distance
  * @param maxLayers      how deep snow gets, in layers
  * @param snowRate       how fast snow settles and water freezes, 1 being vanilla's pace
@@ -21,10 +23,11 @@ import java.util.function.Consumer;
  * @param blocksPerTick  columns looked at for new snow and ice per tick
  * @param recordsPerTick recorded blocks looked at for melting per tick
  */
-public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boolean ice, int snowRadius, int maxLayers,
+public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boolean ice, boolean skimIce,
+                       double skimBelowF, int snowRadius, int maxLayers,
                        double snowRate, int linesPerTick, int chunksPerTick, int blocksPerTick, int recordsPerTick) {
     public static Settings defaults() {
-        return new Settings(true, true, true, true, 0, 2, 1.0, 40, 12, 64, 64);
+        return new Settings(true, true, true, true, true, 25.0, 0, 2, 1.0, 40, 12, 64, 64);
     }
 
     public static Settings load(FileConfiguration config, Consumer<String> warn) {
@@ -34,6 +37,8 @@ public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boole
                 config.getBoolean("colours.enabled", d.colours),
                 config.getBoolean("snow.enabled", d.snow),
                 config.getBoolean("ice.enabled", d.ice),
+                config.getBoolean("ice.skim.enabled", d.skimIce),
+                skimBelow(config, d.skimBelowF, warn),
                 radius(config, d.snowRadius, warn),
                 range(config, "snow.max-layers", d.maxLayers, 1, 8, warn),
                 rate(config, d.snowRate, warn),
@@ -41,6 +46,13 @@ public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boole
                 range(config, "budget.chunks-resent-per-tick", d.chunksPerTick, 1, 100, warn),
                 range(config, "budget.blocks-per-tick", d.blocksPerTick, 1, 500, warn),
                 range(config, "budget.records-per-tick", d.recordsPerTick, 1, 2000, warn));
+    }
+
+    private static double skimBelow(FileConfiguration config, double fallback, Consumer<String> warn) {
+        double value = config.getDouble("ice.skim.below-f", fallback);
+        if (value >= -20.0 && value <= 32.0) return value;
+        warn.accept("ice.skim.below-f must be -20 to 32; using " + fallback + ".");
+        return fallback;
     }
 
     private static int radius(FileConfiguration config, int fallback, Consumer<String> warn) {

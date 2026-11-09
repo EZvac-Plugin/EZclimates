@@ -302,4 +302,18 @@ class SeasonsTest {
         for (int entry : expected) assertTrue(placed.contains(entry));
         assertEquals(expected, java.util.Arrays.stream(placed.toArray()).boxed().collect(java.util.stream.Collectors.toSet()));
     }
+
+    @Test
+    void aHardFrostSkimsShallowWaterAndEdgesFirst() {
+        assertFalse(SnowAndIce.skims(26.0, 25.0, true, 0.0), "never at or above the frost line");
+        assertFalse(SnowAndIce.skims(25.0, 25.0, true, 0.0));
+        assertTrue(SnowAndIce.skims(24.0, 25.0, true, 0.15), "just below: a little chance at the edges");
+        assertFalse(SnowAndIce.skims(24.0, 25.0, true, 0.25));
+        assertFalse(SnowAndIce.skims(24.0, 25.0, false, 0.15), "open shallows half as likely");
+        assertTrue(SnowAndIce.skims(10.0, 25.0, false, 0.49), "a bitter night: likely everywhere shallow");
+        assertTrue(SnowAndIce.skims(0.0, 25.0, true, 0.999), "and certain at the edges");
+        assertEquals(Placed.What.SKIM, Placed.what(Placed.pack(3, 62, 4, Placed.What.SKIM)), "recorded as skim ice");
+        assertFalse(SnowAndIce.melts(34.0, 0.0), "skim ice holds until above 34 F");
+        assertTrue(SnowAndIce.melts(42.0, 0.99), "and goes for sure by 42 F");
+    }
 }
