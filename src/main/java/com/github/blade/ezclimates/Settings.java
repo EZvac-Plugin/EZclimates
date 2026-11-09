@@ -13,7 +13,7 @@ import java.util.function.Consumer;
  * @param colours        seasonal leaf and grass colours
  * @param snow           snow settles where it snows, and melts
  * @param ice            water freezes where it's cold enough, and thaws
- * @param snowRadius     how far round players snow and ice are placed, in blocks
+ * @param snowRadius     how far round players snow and ice are placed, in blocks; 0 for the server's simulation distance
  * @param maxLayers      how deep snow gets, in layers
  * @param snowRate       how fast snow settles and water freezes, 1 being vanilla's pace
  * @param linesPerTick   chunks whose 16 snow lines are worked out per tick, over all players
@@ -24,7 +24,7 @@ import java.util.function.Consumer;
 public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boolean ice, int snowRadius, int maxLayers,
                        double snowRate, int linesPerTick, int chunksPerTick, int blocksPerTick, int recordsPerTick) {
     public static Settings defaults() {
-        return new Settings(true, true, true, true, 64, 2, 1.0, 40, 12, 24, 64);
+        return new Settings(true, true, true, true, 0, 2, 1.0, 40, 12, 64, 64);
     }
 
     public static Settings load(FileConfiguration config, Consumer<String> warn) {
@@ -34,13 +34,20 @@ public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boole
                 config.getBoolean("colours.enabled", d.colours),
                 config.getBoolean("snow.enabled", d.snow),
                 config.getBoolean("ice.enabled", d.ice),
-                range(config, "snow.radius-blocks", d.snowRadius, 16, 160, warn),
+                radius(config, d.snowRadius, warn),
                 range(config, "snow.max-layers", d.maxLayers, 1, 8, warn),
                 rate(config, d.snowRate, warn),
                 range(config, "budget.snow-lines-per-tick", d.linesPerTick, 4, 1000, warn),
                 range(config, "budget.chunks-resent-per-tick", d.chunksPerTick, 1, 100, warn),
                 range(config, "budget.blocks-per-tick", d.blocksPerTick, 1, 500, warn),
                 range(config, "budget.records-per-tick", d.recordsPerTick, 1, 2000, warn));
+    }
+
+    private static int radius(FileConfiguration config, int fallback, Consumer<String> warn) {
+        int value = config.getInt("snow.radius-blocks", fallback);
+        if (value == 0 || value >= 16 && value <= 512) return value;
+        warn.accept("snow.radius-blocks must be 0 (the simulation distance) or 16 to 512; using " + fallback + ".");
+        return fallback;
     }
 
     private static double rate(FileConfiguration config, double fallback, Consumer<String> warn) {

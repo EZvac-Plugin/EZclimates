@@ -14,6 +14,8 @@ public final class Placed {
 
     private int[] entries;
     private int size;
+    /** Where each entry is in {@code entries}, so looking one up or removing it is instant. */
+    private final it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap at = new it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap();
     /** What each block of snow covered (grass, flowers), to bring back when it melts. */
     private final java.util.Map<Integer, String> covered = new java.util.HashMap<>();
 
@@ -24,7 +26,10 @@ public final class Placed {
     /** As saved: the blocks, and what the snow covered, one {@code entry=block data} a line. */
     public Placed(int[] saved, String coveredSaved) {
         entries = saved == null ? new int[0] : saved.clone();
-        size = entries.length;
+        size = 0;
+        at.defaultReturnValue(-1);
+        // Read back without repeats, whatever was saved.
+        for (int entry : entries) if (!at.containsKey(entry)) { at.put(entry, size); entries[size++] = entry; }
         if (coveredSaved != null)
             for (String line : coveredSaved.split("\\n")) {
                 int equals = line.indexOf('=');
@@ -76,26 +81,28 @@ public final class Placed {
     public int get(int index) { return entries[index]; }
 
     public boolean contains(int entry) {
-        for (int i = 0; i < size; i++) if (entries[i] == entry) return true;
-        return false;
+        return at.containsKey(entry);
     }
 
     /** Records a block; false when it already was. */
     public boolean add(int entry) {
         if (contains(entry)) return false;
         if (size == entries.length) entries = Arrays.copyOf(entries, Math.max(8, size * 2));
+        at.put(entry, size);
         entries[size++] = entry;
         return true;
     }
 
     public boolean remove(int entry) {
         covered.remove(entry);
-        for (int i = 0; i < size; i++)
-            if (entries[i] == entry) {
-                entries[i] = entries[--size];
-                return true;
-            }
-        return false;
+        int index = at.remove(entry);
+        if (index < 0) return false;
+        int last = entries[--size];
+        if (index != size) {
+            entries[index] = last;
+            at.put(last, index);
+        }
+        return true;
     }
 
     /** What to save. */

@@ -56,12 +56,14 @@ colours:
 # so all of it follows EZvac.
 snow:
   enabled: true
-  # How far round each player snow and ice are placed.
-  radius-blocks: 64
+  # How far round each player snow and ice are placed: 0 for the server's
+  # simulation distance (every chunk vanilla's own weather would reach), or
+  # a number of blocks.
+  radius-blocks: 0
   # How deep it gets with longer snowfall, in layers (1 to 8).
   max-layers: 2
   # How fast it settles, and water freezes: 1 is vanilla's pace (each chunk
-  # gets a try one tick in 16), 2 twice as fast (0.1 to 20).
+  # gets a try one tick in 48), 2 twice as fast (0.1 to 20).
   rate: 1.0
   # Grass, ferns, bushes, flowers, petals and leaf litter under it are
   # buried, and grow back where they were when it melts.
@@ -129,7 +131,7 @@ weather:
 budget:
   snow-lines-per-tick: 40
   chunks-resent-per-tick: 12
-  blocks-per-tick: 24
+  blocks-per-tick: 64
   records-per-tick: 64
 
 # To remove EZclimates cleanly: /ezclimates clear melts every recorded block

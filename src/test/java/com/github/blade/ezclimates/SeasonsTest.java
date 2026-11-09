@@ -286,4 +286,20 @@ class SeasonsTest {
         assertEquals(10, section.storage.getBitsPerEntry(), "at the registry's width, not packetevents' own");
         assertEquals(map.map(10, Stage.WINTER, Kind.SNOW), section.get(0, 0, 0));
     }
+
+    @Test
+    void theRecordIndexStaysRightThroughAddsAndRemoves() {
+        Placed placed = new Placed(new int[]{5 << 2, 6 << 2, 5 << 2}, null);
+        assertEquals(2, placed.size(), "a repeat in the saved data is read once");
+        java.util.Set<Integer> expected = new java.util.HashSet<>(java.util.List.of(5 << 2, 6 << 2));
+        java.util.Random random = new java.util.Random(1);
+        for (int step = 0; step < 5_000; step++) {
+            int entry = Placed.pack(random.nextInt(16), random.nextInt(40), random.nextInt(16), Placed.What.SNOW);
+            if (random.nextBoolean()) assertEquals(expected.add(entry), placed.add(entry));
+            else assertEquals(expected.remove(entry), placed.remove(entry));
+        }
+        assertEquals(expected.size(), placed.size());
+        for (int entry : expected) assertTrue(placed.contains(entry));
+        assertEquals(expected, java.util.Arrays.stream(placed.toArray()).boxed().collect(java.util.stream.Collectors.toSet()));
+    }
 }

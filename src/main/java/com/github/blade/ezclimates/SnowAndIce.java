@@ -66,12 +66,42 @@ public final class SnowAndIce implements Listener {
 
     public void setBoost(java.util.function.ToDoubleFunction<World> boost) { this.boost = boost; }
 
-    public SnowAndIce(EzvacApi ezvac, Settings settings, NamespacedKey key, NamespacedKey coveredKey, boolean clearing) {
+    private final Looks looks;
+    /** Chunks whose records changed since they were last written into the chunk, per world. */
+    private final Map<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> unsaved = new HashMap<>();
+    /** The chunks snow and ice may fall in: near any player, each once, as of the last second. */
+    private final List<long[]> area = new ArrayList<>();
+    /** The fastest rate any world in the area has: a snowstorm's, or 1. */
+    private double maxBoost = 1.0;
+    private long ticks;
+
+    public SnowAndIce(EzvacApi ezvac, Settings settings, NamespacedKey key, NamespacedKey coveredKey, boolean clearing,
+                      Looks looks) {
         this.ezvac = ezvac;
         this.settings = settings;
         this.key = key;
         this.coveredKey = coveredKey;
         this.clearing = clearing;
+        this.looks = looks;
+    }
+
+    /** Vanilla's pace: a chunk gets a try for snow and ice one tick in this many. */
+    static final int VANILLA_ONE_IN = 48;
+
+    /**
+     * What falls at a block now: from EZclimates' own snow lines for the
+     * chunk when it has them (the same that players see), else from EZvac.
+     */
+    Precipitation fallingAt(World world, int x, int y, int z) {
+        if (!world.hasStorm()) return Precipitation.NONE;
+        Looks.WorldLook look = looks == null ? null : looks.worlds.get(world.getUID());
+        float[] lines = look == null ? null : look.lines.get(Looks.chunkKey(x >> 4, z >> 4));
+        if (lines == null) return ezvac.precipitationAt(world, x, y, z);
+        return switch (Kind.at(lines[((z & 15) >> 2) * Looks.CELLS + ((x & 15) >> 2)], y)) {
+            case SNOW -> Precipitation.SNOW;
+            case RAIN -> Precipitation.RAIN;
+            case DRY -> Precipitation.NONE;
+        };
     }
 
     /**
@@ -105,7 +135,28 @@ public final class SnowAndIce implements Listener {
                 chunk.getWorld().getUID().getLeastSignificantBits(), Looks.chunkKey(chunk.getX(), chunk.getZ())});
     }
 
+    /** Marks a chunk's records to be written into it: once a second, or as it unloads. */
     private void save(Chunk chunk, Placed placed) {
+        unsaved.computeIfAbsent(chunk.getWorld().getUID(), ignored -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet())
+                .add(Looks.chunkKey(chunk.getX(), chunk.getZ()));
+    }
+
+    /** Writes every changed chunk's records into the chunk. */
+    public void flush() {
+        for (Map.Entry<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> entry : unsaved.entrySet()) {
+            World world = org.bukkit.Bukkit.getWorld(entry.getKey());
+            Long2ObjectOpenHashMap<Placed> chunks = records.get(entry.getKey());
+            if (world != null)
+                for (long id : entry.getValue()) {
+                    if (!world.isChunkLoaded(Looks.chunkX(id), Looks.chunkZ(id))) continue;
+                    Placed placed = chunks == null ? null : chunks.get(id);
+                    write(world.getChunkAt(Looks.chunkX(id), Looks.chunkZ(id)), placed == null ? new Placed() : placed);
+                }
+            entry.getValue().clear();
+        }
+    }
+
+    private void write(Chunk chunk, Placed placed) {
         if (placed.isEmpty()) chunk.getPersistentDataContainer().remove(key);
         else chunk.getPersistentDataContainer().set(key, PersistentDataType.INTEGER_ARRAY, placed.toArray());
         String covered = placed.coveredText();
@@ -120,8 +171,15 @@ public final class SnowAndIce implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChunkUnload(ChunkUnloadEvent event) {
+        long id = Looks.chunkKey(event.getChunk().getX(), event.getChunk().getZ());
         Long2ObjectOpenHashMap<Placed> chunks = records.get(event.getWorld().getUID());
-        if (chunks != null) chunks.remove(Looks.chunkKey(event.getChunk().getX(), event.getChunk().getZ()));
+        it.unimi.dsi.fastutil.longs.LongOpenHashSet changed = unsaved.get(event.getWorld().getUID());
+        // Written into the chunk before it is saved and goes.
+        if (changed != null && changed.remove(id)) {
+            Placed placed = chunks == null ? null : chunks.get(id);
+            write(event.getChunk(), placed == null ? new Placed() : placed);
+        }
+        if (chunks != null) chunks.remove(id);
     }
 
     /**
@@ -139,28 +197,60 @@ public final class SnowAndIce implements Listener {
 
     /** Every tick: a few columns round players for new snow and ice, and a few records to melt. */
     public void tick(Iterable<World> worlds) {
-        if (!clearing && (settings.snow() || settings.ice())) place(worlds);
+        if (++ticks % 20 == 1) {
+            gather(worlds);
+            flush();
+        }
+        if (!clearing && (settings.snow() || settings.ice())) place();
         check();
     }
 
-    private void place(Iterable<World> worlds) {
-        List<Player> players = new ArrayList<>();
-        for (World world : worlds) if (LookUpdater.seasonal(world)) players.addAll(world.getPlayers());
-        if (players.isEmpty()) return;
+    /**
+     * The chunks snow and ice may fall in: every loaded chunk within the
+     * simulation distance of a player (or snow.radius-blocks), each once
+     * however many players are near it, as vanilla ticks them.
+     */
+    private void gather(Iterable<World> worlds) {
+        area.clear();
+        maxBoost = 1.0;
+        for (World world : worlds) {
+            if (!LookUpdater.seasonal(world) || world.getPlayers().isEmpty()) continue;
+            int radius = settings.snowRadius() > 0 ? (settings.snowRadius() + 15) >> 4 : world.getSimulationDistance();
+            it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
+            long most = world.getUID().getMostSignificantBits(), least = world.getUID().getLeastSignificantBits();
+            for (Player player : world.getPlayers()) {
+                int cx = player.getLocation().getBlockX() >> 4, cz = player.getLocation().getBlockZ() >> 4;
+                for (int x = cx - radius; x <= cx + radius; x++)
+                    for (int z = cz - radius; z <= cz + radius; z++)
+                        if (seen.add(Looks.chunkKey(x, z)) && world.isChunkLoaded(x, z))
+                            area.add(new long[]{most, least, Looks.chunkKey(x, z)});
+            }
+            maxBoost = Math.max(maxBoost, boost.applyAsDouble(world));
+        }
+    }
+
+    private void place() {
+        if (area.isEmpty()) return;
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        int radius = settings.snowRadius();
-        // Vanilla's pace: each chunk gets a try one tick in 16, times snow.rate, within the budget.
-        double chunks = (2.0 * radius + 1) * (2.0 * radius + 1) / 256.0;
-        double rate = 0.0;
-        for (Player player : players) rate += boost.applyAsDouble(player.getWorld());
-        owed += rate * chunks / 16.0 * settings.snowRate();
+        // Vanilla's pace: each chunk a try one tick in 48, times snow.rate, within the budget. Tries are
+        // made at the fastest world's rate; a world without a snowstorm keeps only its share of them.
+        owed += area.size() * maxBoost / VANILLA_ONE_IN * settings.snowRate();
         int tries = (int) Math.min(settings.blocksPerTick(), Math.floor(owed));
         owed = Math.min(owed - tries, settings.blocksPerTick());
+        World last = null;
+        long lastMost = 0, lastLeast = 0;
         for (int i = 0; i < tries; i++) {
-            Player player = players.get(random.nextInt(players.size()));
-            World world = player.getWorld();
-            int x = player.getLocation().getBlockX() + random.nextInt(-radius, radius + 1);
-            int z = player.getLocation().getBlockZ() + random.nextInt(-radius, radius + 1);
+            long[] chunk = area.get(random.nextInt(area.size()));
+            if (last == null || chunk[0] != lastMost || chunk[1] != lastLeast) {
+                last = org.bukkit.Bukkit.getWorld(new UUID(chunk[0], chunk[1]));
+                lastMost = chunk[0];
+                lastLeast = chunk[1];
+            }
+            World world = last;
+            if (world == null) continue;
+            if (maxBoost > 1.0 && random.nextDouble() * maxBoost > boost.applyAsDouble(world)) continue;
+            int x = (Looks.chunkX(chunk[2]) << 4) + random.nextInt(16);
+            int z = (Looks.chunkZ(chunk[2]) << 4) + random.nextInt(16);
             if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
             Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
             if (top.getType() == Material.WATER) {
@@ -176,7 +266,7 @@ public final class SnowAndIce implements Listener {
 
     private void settle(Block top) {
         World world = top.getWorld();
-        if (ezvac.precipitationAt(world, top.getX(), top.getY() + 1, top.getZ()) != Precipitation.SNOW) return;
+        if (fallingAt(world, top.getX(), top.getY() + 1, top.getZ()) != Precipitation.SNOW) return;
         Placed placed = placedIn(top.getChunk(), true);
         if (top.getType() == Material.SNOW) {
             // Deeper with longer snowfall, but only on its own snow.
@@ -280,7 +370,7 @@ public final class SnowAndIce implements Listener {
                     if (!clearing) {
                         // Nothing melts while it's still snowing on it: snow falls up to winter's line
                         // (40 F), above where melting starts, and the two would fight.
-                        if (ezvac.precipitationAt(world, block.getX(), block.getY(), block.getZ()) == Precipitation.SNOW)
+                        if (fallingAt(world, block.getX(), block.getY(), block.getZ()) == Precipitation.SNOW)
                             continue;
                         if (Double.isNaN(airF)) airF = ezvac.outdoorAt(block.getLocation()).airF();
                         if (!melts(airF, ThreadLocalRandom.current().nextDouble())) continue;

@@ -79,7 +79,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         state = new java.io.File(getDataFolder(), "state.yml");
         boolean clearing = org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(state).getBoolean("clearing");
         snow = new SnowAndIce(ezvac, settings, new org.bukkit.NamespacedKey(this, "placed"),
-                new org.bukkit.NamespacedKey(this, "covered"), clearing);
+                new org.bukkit.NamespacedKey(this, "covered"), clearing, looks);
         getServer().getPluginManager().registerEvents(snow, this);
         snow.start(getServer().getWorlds());
         if (clearing) getLogger().info("Still clearing snow and ice (/ezclimates resume to stop).");
@@ -94,9 +94,21 @@ public final class EzClimatesPlugin extends JavaPlugin {
             snow.setBoost(weather::snowRate);
         }
         task = getServer().getScheduler().runTaskTimer(this, () -> {
+            long start = System.nanoTime();
             weather.tick(getServer().getWorlds());
+            long planned = System.nanoTime();
             updater.tick(getServer().getWorlds());
+            long looked = System.nanoTime();
             snow.tick(getServer().getWorlds());
+            long done = System.nanoTime();
+            timing[0] += planned - start;
+            timing[1] += looked - planned;
+            timing[2] += done - looked;
+            if (++timedTicks >= 1_200) {
+                lastTiming = new double[]{timing[0] / 1e6 / timedTicks, timing[1] / 1e6 / timedTicks, timing[2] / 1e6 / timedTicks};
+                java.util.Arrays.fill(timing, 0);
+                timedTicks = 0;
+            }
         }, 1L, 1L);
         registerCommand("ezclimates", "EZclimates' status", new Commands());
         getLogger().info("EZclimates is showing EZvac's seasons: " + EzClimatesBootstrap.copies
@@ -109,9 +121,14 @@ public final class EzClimatesPlugin extends JavaPlugin {
         if (task != null) task.cancel();
         if (listener != null) PacketEvents.getAPI().getEventManager().unregisterListener(listener);
         if (weather != null && weather.enabled()) weather.save();
+        if (snow != null) snow.flush();
     }
 
     private WeatherDriver weather;
+    /** Time spent each tick on the weather, the looks and snow and ice, over the last minute. */
+    private final long[] timing = new long[3];
+    private int timedTicks;
+    private double[] lastTiming;
 
     /** /ezclimates, for admins (ezclimates.admin). */
     private final class Commands implements io.papermc.paper.command.brigadier.BasicCommand {
@@ -147,6 +164,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
                             + ", " + look.lines.size() + " chunks' snow lines known.");
                 }
                 sender.sendMessage("  Chunks resent since start: " + updater.resentTotal() + ".");
+                if (lastTiming != null) sender.sendMessage(String.format(java.util.Locale.ROOT,
+                        "  Time per tick over the last minute: weather %.3f ms, looks %.3f ms, snow and ice %.3f ms.",
+                        lastTiming[0], lastTiming[1], lastTiming[2]));
                 int[] recorded = snow.recorded();
                 sender.sendMessage("  Snow and ice in loaded chunks: " + recorded[0] + " snow, " + recorded[1]
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
