@@ -126,6 +126,25 @@ public final class WeatherPlanner {
             }
             fronts.removeIf(front -> front.end() <= front.start());
         }
+
+        /**
+         * Ends a heat wave or cold snap running at {@code time}: it eases
+         * out over the next {@code easeTicks} rather than stopping dead.
+         * True when there was one.
+         */
+        boolean endSwingAt(long time, long easeTicks) {
+            boolean ended = false;
+            for (int i = 0; i < swings.size(); i++) {
+                Swing swing = swings.get(i);
+                if (!swing.covers(time)) continue;
+                double now = swing.shiftAt(time);
+                // A short swing of its own size now, at its peak from the start, easing out to nothing.
+                swings.set(i, new Swing(time - 3 * easeTicks, time + easeTicks,
+                        Math.abs(swing.peakF()) < 1e-9 ? 0.0 : now));
+                ended = true;
+            }
+            return ended;
+        }
     }
 
     private final WeatherSettings settings;

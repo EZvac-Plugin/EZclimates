@@ -18,6 +18,8 @@ import java.util.function.Consumer;
  * @param snowRadius     how far round players snow and ice are placed, in blocks; 0 for the server's simulation distance
  * @param maxLayers      how deep snow gets, in layers
  * @param snowRate       how fast snow settles and water freezes, 1 being vanilla's pace
+ * @param holdDays       the coldest days of winter, round its middle, through which snow and skim ice hold; 0 for none
+ * @param holdUnlessAboveF through those days, they melt only on a day averaging warmer than this, in F
  * @param linesPerTick   chunks whose 16 snow lines are worked out per tick, over all players
  * @param chunksPerTick  chunks resent to each player per tick when their look changes
  * @param blocksPerTick  columns looked at for new snow and ice per tick
@@ -25,9 +27,10 @@ import java.util.function.Consumer;
  */
 public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boolean ice, boolean skimIce,
                        double skimBelowF, int snowRadius, int maxLayers,
-                       double snowRate, int linesPerTick, int chunksPerTick, int blocksPerTick, int recordsPerTick) {
+                       double snowRate, int holdDays, double holdUnlessAboveF, int linesPerTick, int chunksPerTick,
+                       int blocksPerTick, int recordsPerTick) {
     public static Settings defaults() {
-        return new Settings(true, true, true, true, true, 25.0, 0, 2, 1.0, 40, 12, 64, 64);
+        return new Settings(true, true, true, true, true, 25.0, 0, 2, 1.0, 10, 45.0, 40, 12, 64, 64);
     }
 
     public static Settings load(FileConfiguration config, Consumer<String> warn) {
@@ -42,6 +45,8 @@ public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boole
                 radius(config, d.snowRadius, warn),
                 range(config, "snow.max-layers", d.maxLayers, 1, 8, warn),
                 rate(config, d.snowRate, warn),
+                range(config, "snow.melt.deep-winter-hold-days", d.holdDays, 0, 120, warn),
+                holdAbove(config, d.holdUnlessAboveF, warn),
                 range(config, "budget.snow-lines-per-tick", d.linesPerTick, 4, 1000, warn),
                 range(config, "budget.chunks-resent-per-tick", d.chunksPerTick, 1, 100, warn),
                 range(config, "budget.blocks-per-tick", d.blocksPerTick, 1, 500, warn),
@@ -59,6 +64,13 @@ public record Settings(boolean rainAndSnow, boolean colours, boolean snow, boole
         int value = config.getInt("snow.radius-blocks", fallback);
         if (value == 0 || value >= 16 && value <= 512) return value;
         warn.accept("snow.radius-blocks must be 0 (the simulation distance) or 16 to 512; using " + fallback + ".");
+        return fallback;
+    }
+
+    private static double holdAbove(FileConfiguration config, double fallback, Consumer<String> warn) {
+        double value = config.getDouble("snow.melt.hold-unless-above-f", fallback);
+        if (value >= 34.0 && value <= 80.0) return value;
+        warn.accept("snow.melt.hold-unless-above-f must be 34 to 80; using " + fallback + ".");
         return fallback;
     }
 

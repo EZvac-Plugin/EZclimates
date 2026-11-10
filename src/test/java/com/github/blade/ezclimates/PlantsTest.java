@@ -59,6 +59,29 @@ class PlantsTest {
     }
 
     @Test
+    void lyingSnowAnswersToTheDaysAverage() {
+        // A cold night's snow, a mild morning: the hour is 38 F but the day averages 31 F.
+        assertFalse(SnowAndIce.thaws(38, 31, false, 45, 0.0), "the day is cold enough: it holds");
+        assertFalse(SnowAndIce.thaws(30, 40, false, 45, 0.0), "not in the cold of the night, even on a mild day");
+        assertTrue(SnowAndIce.thaws(45, 40, false, 45, 0.0), "a mild day melts it");
+        assertFalse(SnowAndIce.thaws(45, 40, false, 45, 0.99), "but gradually");
+        assertTrue(SnowAndIce.thaws(55, 46, false, 45, 0.99), "every look on a day averaging 46 F");
+        // Deep winter on the plains: 54 F at noon, 32 F at night, 43 F on average.
+        assertFalse(SnowAndIce.thaws(54, 43, true, 45, 0.0), "the plains keep their midwinter snow");
+        assertTrue(SnowAndIce.thaws(60, 50, true, 45, 0.0), "a real warm spell still melts it");
+        assertTrue(SnowAndIce.thaws(40, Double.NaN, false, 45, 0.0), "an older EZvac: the hour decides, as before");
+        // The hold: 10 days round the middle of a 30-day winter (days 11 to 20).
+        for (int day = 1; day <= 30; day++) {
+            double progress = (3 * 30 + day - 0.5) / 120.0;
+            assertEquals(day >= 11 && day <= 20, SnowAndIce.inHold(progress, 30, 10), "winter day " + day);
+        }
+        assertFalse(SnowAndIce.inHold(0.5, 30, 10), "never in summer");
+        assertFalse(SnowAndIce.inHold(0.875, 30, 0), "0 days: no hold");
+        assertTrue(SnowAndIce.inHold(0.76, 30, 200), "a hold longer than winter is all of winter");
+        assertFalse(SnowAndIce.inHold(0.74, 30, 200), "but never more");
+    }
+
+    @Test
     void onlyBroadleafTreesShedAndGroundCoverIsToldApart() {
         assertTrue(Plants.shedsLeaves(org.bukkit.Material.OAK_LEAVES));
         assertTrue(Plants.shedsLeaves(org.bukkit.Material.BIRCH_LEAVES));

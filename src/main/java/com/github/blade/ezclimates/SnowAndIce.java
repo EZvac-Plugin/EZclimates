@@ -471,8 +471,9 @@ public final class SnowAndIce implements Listener {
             if (!world.isChunkLoaded(cx, cz)) continue;
             Chunk chunk = world.getChunkAt(cx, cz);
             boolean changed = false;
-            // The chunk's air once for its snow; its water block by block, for pools.
-            double airF = Double.NaN;
+            // The chunk's air and day's average once for its snow; its water block by block, for pools.
+            double airF = Double.NaN, meanF = Double.NaN;
+            boolean held = deepWinter(world);
             for (int i = placed.size() - 1; i >= 0 && budget > 0; i--, budget--) {
                 int entry = placed.get(i);
                 Block block = chunk.getBlock(Placed.x(entry), Placed.y(entry), Placed.z(entry));
@@ -492,7 +493,8 @@ public final class SnowAndIce implements Listener {
                         if (fallingAt(world, block.getX(), block.getY(), block.getZ()) == Precipitation.SNOW)
                             continue;
                         if (Double.isNaN(airF)) airF = ezvac.outdoorAt(block.getLocation()).airF();
-                        if (!melts(airF, ThreadLocalRandom.current().nextDouble())) continue;
+                        if (Double.isNaN(meanF)) meanF = dailyMeanF(block);
+                        if (!thaws(airF, meanF, held, ThreadLocalRandom.current().nextDouble())) continue;
                     }
                     Snow snow = (Snow) block.getBlockData();
                     if (snow.getLayers() > 1 && !clearing) {
@@ -524,10 +526,10 @@ public final class SnowAndIce implements Listener {
                                 : ezvac.freezingWaterF(world, block.getX(), block.getY(), block.getZ());
                         // Ice the water's cold made stays while the water is that cold.
                         if (waterF <= THAW_ABOVE_F) continue;
-                        // Skim ice goes as the air warms, gradually, like snow.
+                        // Skim ice goes as the days warm, gradually, like snow, and holds through deep winter.
                         if (Placed.what(entry) == Placed.What.SKIM) {
                             double air = ezvac.outdoorAt(block.getLocation().add(0.5, 1.0, 0.5)).airF();
-                            if (!melts(air, ThreadLocalRandom.current().nextDouble())) continue;
+                            if (!thaws(air, dailyMeanF(block), held, ThreadLocalRandom.current().nextDouble())) continue;
                         }
                     }
                     block.setType(Material.WATER, false);
@@ -549,6 +551,48 @@ public final class SnowAndIce implements Listener {
     static boolean melts(double airF, double roll) {
         if (!(airF > THAW_ABOVE_F)) return false;
         return roll < Math.min(1.0, (airF - THAW_ABOVE_F) / 8.0);
+    }
+
+    /**
+     * Whether a look at snow (or skim ice) on the ground melts a layer. It
+     * answers to the day's average air, not the hour's, so a cold night's
+     * snow outlasts a mild morning: nothing melts on a day averaging 34 F
+     * or colder, nor in the cold of the night. On warmer days it goes
+     * gradually, a layer at a time, faster the warmer the day (every look
+     * on a day averaging 46 F or more). Through the deep-winter hold it
+     * melts only on a clearly warm day, above {@code holdUnlessAboveF}.
+     * Without a day's average (an older EZvac) the hour's air decides.
+     */
+    boolean thaws(double airF, double meanF, boolean held, double roll) {
+        return thaws(airF, meanF, held, settings.holdUnlessAboveF(), roll);
+    }
+
+    static boolean thaws(double airF, double meanF, boolean held, double holdUnlessAboveF, double roll) {
+        if (Double.isNaN(meanF)) return melts(airF, roll);
+        if (!(airF > THAW_ABOVE_F) || !(meanF > THAW_ABOVE_F)) return false;
+        if (held && !(meanF > holdUnlessAboveF)) return false;
+        return roll < Math.min(1.0, (meanF - THAW_ABOVE_F) / 12.0);
+    }
+
+    /** Today's average air at a block, from EZvac (API 1.9); NaN from one without it. */
+    private double dailyMeanF(Block block) {
+        return ezvac.dailyMeanAirF(block.getWorld(), block.getX(), block.getY(), block.getZ());
+    }
+
+    /**
+     * Whether a world is in the coldest stretch of winter, round its middle
+     * (where EZvac's seasons are coldest), which lasts {@code holdDays}.
+     */
+    boolean deepWinter(World world) {
+        if (settings.holdDays() <= 0) return false;
+        return ezvac.season(world).map(view -> inHold(view.progress(), view.daysPerSeason(), settings.holdDays()))
+                .orElse(false);
+    }
+
+    /** Whether a point of the year (0 to 1, winter its last quarter) falls in the hold round winter's middle. */
+    static boolean inHold(double progress, int daysPerSeason, int holdDays) {
+        double days = Math.abs(progress - 0.875) * 4.0 * daysPerSeason;
+        return days < Math.min(holdDays, daysPerSeason) / 2.0;
     }
 
     /** The last layer melts: what it buried grows back, or the air returns. */
@@ -675,6 +719,13 @@ public final class SnowAndIce implements Listener {
     public List<String> describe(World world, int x, int z) {
         List<String> lines = new ArrayList<>();
         Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
+        double mean = dailyMeanF(top.getRelative(BlockFace.UP));
+        boolean held = deepWinter(world);
+        lines.add(Double.isNaN(mean) ? "Snow here melts by the hour's air (this EZvac has no day's average)."
+                : String.format(java.util.Locale.ROOT, "Today's average air here: %.1f F, so lying snow %s.", mean,
+                held && !(mean > settings.holdUnlessAboveF()) ? "holds: it's the depth of winter"
+                        : !(mean > THAW_ABOVE_F) ? "holds: the day is cold enough"
+                        : held ? "melts: a warm day, even in deep winter" : "melts, slowly, in the warm of the day"));
         lines.add("Top block " + top.getType().getKey().getKey() + " at y " + top.getY() + "; falling above it: "
                 + ezvac.precipitationAt(world, x, top.getY() + 1, z).name().toLowerCase(java.util.Locale.ROOT)
                 + "; air " + String.format(java.util.Locale.ROOT, "%.1f F", ezvac.outdoorAt(top.getLocation().add(0, 1, 0)).airF())

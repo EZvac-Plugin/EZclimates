@@ -238,7 +238,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
             if (args.length <= 1) return List.of("status", "here", "weather", "body", "adopt", "clear", "resume");
             if (args[0].equalsIgnoreCase("body"))
                 return body.complete(java.util.Arrays.copyOfRange(args, 1, args.length));
-            if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "replan");
+            if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "end", "replan");
             if (args[0].equalsIgnoreCase("weather") && args.length == 3 && args[1].equalsIgnoreCase("event"))
                 return List.of("snowstorm", "thunderstorm", "heatwave", "coldsnap");
             return List.of();
@@ -336,6 +336,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
                         }
                     }
                     sender.sendMessage(weather.start(world, args[2], hours));
+                } else if (args.length >= 2 && args[1].equalsIgnoreCase("end")) {
+                    sender.sendMessage(weather.end(world));
                 } else if (args.length >= 2 && args[1].equalsIgnoreCase("replan")) {
                     sender.sendMessage(weather.replan(world));
                 } else {

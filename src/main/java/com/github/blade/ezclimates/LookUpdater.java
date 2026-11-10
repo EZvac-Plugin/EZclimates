@@ -176,7 +176,18 @@ public final class LookUpdater implements Listener {
             Looks.WorldLook look = looks.worlds.computeIfAbsent(world.getUID(),
                     ignored -> new Looks.WorldLook(world.getMinHeight(), world.getMaxHeight() - world.getMinHeight()));
             if (tick % 20 == 0) look.stage = stage(world);
-            if (jumped(world)) work.remove(world.getUID());
+            if (jumped(world)) {
+                work.remove(world.getUID());
+                // EZvac takes the new weather in on its next cycle, up to a second later: whether this rain
+                // reaches dry ground is only known then, so the lines are worked out once more after it.
+                recheck.put(world.getUID(), tick + RECHECK_TICKS);
+            } else {
+                Long due = recheck.get(world.getUID());
+                if (due != null && tick >= due) {
+                    recheck.remove(world.getUID());
+                    work.remove(world.getUID());
+                }
+            }
             if (showing) budget = lines(world, look, budget);
         }
         for (World world : worlds) {
@@ -185,6 +196,11 @@ public final class LookUpdater implements Listener {
             for (Player player : world.getPlayers()) resend(player, world, look);
         }
     }
+
+    /** When each world's lines are to be worked out once more after its weather turned. */
+    private final Map<UUID, Long> recheck = new HashMap<>();
+    /** Two of EZvac's cycles. */
+    static final long RECHECK_TICKS = 45L;
 
     /** Each world's clock, weather and season as last seen: [full time, rain, thunder, season day]. */
     private final Map<UUID, long[]> seen = new HashMap<>();

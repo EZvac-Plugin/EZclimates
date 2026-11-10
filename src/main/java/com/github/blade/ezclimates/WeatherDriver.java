@@ -277,6 +277,27 @@ public final class WeatherDriver implements WeatherPlan, Listener {
         return lines;
     }
 
+    /**
+     * Ends what is going on now: a front (rain, snow, a snowstorm, a
+     * thunderstorm) stops at once, and a heat wave or cold snap eases out
+     * over an in-game hour. The rest of the plan stays as it was.
+     */
+    public String end(World world) {
+        if (!drives(world)) return "EZclimates doesn't plan the weather in " + world.getName() + ".";
+        WeatherPlanner.Plan plan = plan(world);
+        long now = world.getFullTime();
+        boolean front = plan.frontAt(now) != null;
+        if (front) plan.endFrontAt(now);
+        boolean swing = plan.endSwingAt(now, WeatherPlanner.HOUR);
+        if (!front && !swing) return "Nothing is going on in " + world.getName() + " to end.";
+        dirty = true;
+        drive(world, plan);
+        sky(world, plan);
+        return "Ended " + (front && swing ? "the rain or snow, and the heat wave or cold snap (it eases out over an hour)"
+                : front ? "the rain or snow" : "the heat wave or cold snap: it eases out over an in-game hour")
+                + " in " + world.getName() + ". The rest of the plan is as it was.";
+    }
+
     /** Starts an event now, for {@code hours} in-game hours. */
     public String start(World world, String name, double hours) {
         if (!drives(world)) return "EZclimates doesn't plan the weather in " + world.getName() + ".";

@@ -49,7 +49,7 @@ colours:
     jungle: 0.15
 
 # Snow that settles where EZvac says it snows, on open ground round players,
-# and melts layer by layer once EZvac's air is above 34 F. Every block of it
+# and melts layer by layer on days that average above 34 F. Every block of it
 # is recorded in its chunk and only recorded blocks are ever melted, so it
 # never stays forever, and a player's own snow and the snow snowy biomes are
 # generated with are never touched. Vanilla's own weather snow is stopped,
@@ -65,6 +65,17 @@ snow:
   # How fast it settles, and water freezes: 1 is vanilla's pace (each chunk
   # gets a try one tick in 48), 2 twice as fast (0.1 to 20).
   rate: 1.0
+  # Melting answers to the day's average air (halfway between its noon and
+  # its midnight), not the hour's, so a cold night's snow outlasts a mild
+  # morning: nothing melts on a day averaging 34 F or colder, nor in the cold
+  # of the night; warmer days take it a layer at a time. Through the coldest
+  # stretch of winter, deep-winter-hold-days round its middle, snow and skim
+  # ice hold unless the day averages warmer than hold-unless-above-f (a real
+  # warm spell, or a heat wave), so mild plains keep a white midwinter.
+  # 0 days for no hold.
+  melt:
+    deep-winter-hold-days: 10
+    hold-unless-above-f: 45.0
   # Grass, ferns, bushes, flowers, petals and leaf litter under it are
   # buried, and grow back where they were when it melts.
 

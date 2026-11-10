@@ -33,6 +33,7 @@ Install the jar in `plugins/` and **restart** (not `/reload`): the seasonal biom
 | `/ezclimates status` | The seasonal biomes, each world's stage, and the snow and ice recorded in loaded chunks |
 | `/ezclimates weather` | The weather plan for the next week: each day's chances, events and shifts |
 | `/ezclimates weather event <snowstorm\|thunderstorm\|heatwave\|coldsnap> [hours]` | Starts one now (12 in-game hours by default) |
+| `/ezclimates weather end` | Ends what is going on now: rain, snow or a storm stops at once, and a heat wave or cold snap eases out over an in-game hour. The rest of the plan stays |
 | `/ezclimates weather replan` | Plans the weather afresh from now |
 | `/ezclimates here` | What EZclimates sees where you stand: what's falling, the air, the snow line, the water and its freezing point (`here <x> <z>` from the console) |
 | `/ezclimates body reload` | Reads `body.yml` again |
