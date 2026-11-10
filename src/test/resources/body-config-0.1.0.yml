@@ -1,0 +1,142 @@
+# LiveExposure: heat and cold that wear down survival players caught in the
+# elements, built on EZvac's climate. Temperatures here are always in F, like
+# EZvac's config; players see F or C, following EZvac's own "units" setting.
+#
+# Each player has a body temperature. It rests at 98.6 F, falls in the cold,
+# rises in the heat, and settles back once they're comfortable. How cold or
+# hot it feels comes from EZvac ("feels like": humidity, wind, the season, and
+# whether they're in a heated or cooled room), or the water's temperature when
+# they're swimming.
+
+# Heat and cold can kill. false keeps players alive at damage.floor instead.
+lethal: true
+
+# Outside this band the body cools or warms; inside it, it recovers.
+comfort:
+  low-f: 50.0
+  high-f: 86.0
+
+rates:
+  # Body cooling per minute, for every degree it feels below comfort.low-f:
+  # at 20 F that's 30 x 0.034 = about 1 F a minute.
+  cold-f-per-minute: 0.034
+  # Body warming per minute, for every degree it feels above comfort.high-f.
+  heat-f-per-minute: 0.027
+  # How fast the body returns to 98.6 F once comfortable.
+  recovery-f-per-minute: 0.7
+  # Water moves body heat this many times faster than air.
+  water-factor: 3.0
+
+# Where the body settles. For every degree it feels past the comfort band,
+# the body's balance point moves this far from 98.6 F; the body heads there at
+# the rates above and stays. With 0.25, heatstroke (104 F) needs about 108 F
+# feels-like, and freezing (below 91 F) about 20 F.
+balance:
+  heat-f-per-f: 0.25
+  cold-f-per-f: 0.25
+
+# Where each stage begins, by body temperature.
+stages:
+  chilled-below-f: 97.0            # a warning and a little frost
+  hypothermia-below-f: 95.0        # Slowness
+  severe-hypothermia-below-f: 93.0 # Slowness II, Weakness, Mining Fatigue
+  freezing-below-f: 91.0           # and damage
+  overheating-above-f: 99.5        # a warning
+  heat-exhaustion-above-f: 100.5   # Slowness, hunger
+  severe-heat-above-f: 102.0       # Weakness, Mining Fatigue, a wave of Nausea
+  heatstroke-above-f: 104.0        # and damage
+
+damage:
+  # Damage per hit while freezing or in heatstroke, and the time between hits.
+  amount: 1.0
+  interval-seconds: 4.0
+  # With lethal: false, heat and cold never take a player below this health
+  # (1.0 = half a heart).
+  floor: 1.0
+
+# Leather armour keeps the cold out: points per piece worn, and how many
+# degrees each point is worth. A full set is 10 points = 15 F warmer, only
+# against cold.
+cold-resistance:
+  helmet: 1.5
+  chestplate: 3.5
+  leggings: 3.5
+  boots: 1.5
+  f-per-point: 1.5
+
+# Shade: while the sun is up, a roof, an overhang or a tree overhead (any
+# solid opaque block, or leaves; glass lets the sun through) takes this much
+# off how hot it feels. Only against heat, and never below comfort.high-f.
+shade:
+  enabled: true
+  cooling-f: 10.0
+
+# Sweat: drops falling from around an overheating player's head, more the
+# hotter they get. Purely visual.
+sweat:
+  enabled: true
+
+worlds:
+  # Worlds it applies in; empty means every world.
+  enabled: []
+  # Worlds it never applies in.
+  disabled: []
+
+# Game modes it applies in. Creative and spectator players are never affected,
+# and nor is anyone with the liveexposure.bypass permission.
+game-modes: [SURVIVAL, ADVENTURE]
+
+# Players can fall ill. Entirely optional: false switches it off completely
+# (existing illnesses pause, and everything else works as before).
+sickness:
+  enabled: true
+  # Every day (EZvac's calendar, or the world's own days without seasons),
+  # each player rolls this chance of falling ill, by the season of the day
+  # that ended.
+  chance:
+    spring: 0.03
+    summer: 0.01
+    autumn: 0.04
+    winter: 0.08
+    no-seasons: 0.03
+  # A day spent cold multiplies the chance, up to this for a whole day cold.
+  cold-multiplier: 4.0
+  # Time near a sick player adds to the next roll.
+  contagion:
+    range-blocks: 10.0
+    # Contact needed in a day before it counts.
+    seconds: 30.0
+    # Added to the chance: 0.35 = 35 percentage points.
+    bonus: 0.35
+  maximum-chance: 0.95
+  # How likely each severity is when someone falls ill.
+  severity:
+    mild: 0.6
+    moderate: 0.3
+    severe: 0.1
+  # How long an illness lasts, in days.
+  days:
+    minimum: 2
+    maximum: 3
+  # A fever raises the body's resting temperature...
+  fever-f:
+    mild: 99.4
+    moderate: 100.0
+    severe: 100.6
+  # ...and makes heat warm the body this many times faster.
+  heat-multiplier:
+    mild: 1.5
+    moderate: 2.0
+    severe: 2.5
+  # Minutes between waves of nausea.
+  nausea-every-minutes:
+    mild: 5.0
+    moderate: 3.0
+    severe: 2.0
+  # Drinking a water bottle while sick takes days-per-bottle off the illness,
+  # up to maximum-days in all.
+  water:
+    days-per-bottle: 0.25
+    maximum-days: 1.0
+  # Logs every daily roll to the console, for tuning.
+  log-rolls: false

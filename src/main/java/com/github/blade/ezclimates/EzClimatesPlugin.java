@@ -92,6 +92,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(weather, this);
             snow.setBoost(weather::snowRate);
         }
+        // Body temperature: LiveExposure, now a part of EZclimates. Off until a server switches it on.
+        body = new com.github.blade.ezclimates.body.BodyTemperature(this, ezvac);
+        body.prepare();
         // EZvac's Addons menu switches EZclimates, and each of its parts, while the server runs.
         this.ezvac = ezvac;
         com.github.blade.hvac.api.addon.AddonSwitches switches = ezvac.registerAddon(this, new Switches());
@@ -99,7 +102,22 @@ public final class EzClimatesPlugin extends JavaPlugin {
         looksOn = switches.partOn(LOOKS);
         snowOn = switches.partOn(SNOW_AND_ICE);
         weatherOn = switches.partOn(WEATHER);
+        bodyOn = switches.partOn(BODY);
         apply();
+        if (body.leftToLiveExposure())
+            getLogger().info("The LiveExposure plugin is installed, so body temperature is left to it. It is part"
+                    + " of EZclimates now: remove LiveExposure's jar to use EZclimates' own (its settings and"
+                    + " players' body temperatures are brought over).");
+        registerCommand("bodytemp", "Shows your body temperature, and any sickness.", List.of("bodytemperature"),
+                new io.papermc.paper.command.brigadier.BasicCommand() {
+                    @Override
+                    public void execute(io.papermc.paper.command.brigadier.CommandSourceStack source, String[] args) {
+                        body.bodyTemp(source.getSender());
+                    }
+
+                    @Override
+                    public String permission() { return "liveexposure.use"; }
+                });
         task = getServer().getScheduler().runTaskTimer(this, () -> {
             long start = System.nanoTime();
             weather.tick(getServer().getWorlds());
@@ -123,10 +141,11 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 + ", colours " + (settings.colours() ? "on" : "off") + ".");
     }
 
-    static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather";
+    static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather", BODY = "body";
 
     private EzvacApi ezvac;
-    private boolean active = true, looksOn = true, snowOn = true, weatherOn = true;
+    private com.github.blade.ezclimates.body.BodyTemperature body;
+    private boolean active = true, looksOn = true, snowOn = true, weatherOn = true, bodyOn;
 
     /** What EZvac's Addons menu switches: all of EZclimates, and its parts one by one. */
     private final class Switches implements com.github.blade.hvac.api.addon.Addon {
@@ -146,7 +165,10 @@ public final class EzClimatesPlugin extends JavaPlugin {
                             + " new is placed, and what is there still melts.", on -> { snowOn = on; apply(); }),
                     new Part(WEATHER, "Planned weather", "Fronts, snowstorms, heat waves and cold snaps, and"
                             + " forecasts that come true. Off: Minecraft's weather runs itself.",
-                            on -> { weatherOn = on; apply(); }));
+                            on -> { weatherOn = on; apply(); }),
+                    new Part(BODY, "Body temperature", "Heat and cold that wear down survival players, and sickness"
+                            + " (LiveExposure). It can kill: see body.yml. Off: nobody's body changes.",
+                            on -> { bodyOn = on; apply(); }, body.onByDefault()));
         }
     }
 
@@ -159,6 +181,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         boolean weatherNow = active && weatherOn && weather.enabled();
         weather.setOn(weatherNow);
         ezvac.setWeatherPlan(this, weatherNow ? weather : null);
+        body.setRunning(active && bodyOn);
     }
 
     /** What is switched off in EZvac's Addons menu, for /ezclimates status; empty when nothing is. */
@@ -168,6 +191,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         if (!looksOn) off.add("seasonal looks");
         if (!snowOn) off.add("snow and ice");
         if (!weatherOn) off.add("planned weather");
+        if (!bodyOn && body.onByDefault()) off.add("body temperature");
         return off.isEmpty() ? "" : "Switched off in EZvac's Addons menu (/hvac addons): " + String.join(", ", off) + ".";
     }
 
@@ -177,6 +201,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         if (listener != null) PacketEvents.getAPI().getEventManager().unregisterListener(listener);
         if (weather != null && weather.enabled()) weather.save();
         if (snow != null) snow.flush();
+        if (body != null) body.shutdown();
     }
 
     private WeatherDriver weather;
@@ -195,7 +220,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
         @Override
         public java.util.Collection<String> suggest(io.papermc.paper.command.brigadier.CommandSourceStack source,
                                                     String[] args) {
-            if (args.length <= 1) return List.of("status", "here", "weather", "clear", "resume");
+            if (args.length <= 1) return List.of("status", "here", "weather", "body", "clear", "resume");
+            if (args[0].equalsIgnoreCase("body"))
+                return body.complete(java.util.Arrays.copyOfRange(args, 1, args.length));
             if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "replan");
             if (args[0].equalsIgnoreCase("weather") && args.length == 3 && args[1].equalsIgnoreCase("event"))
                 return List.of("snowstorm", "thunderstorm", "heatwave", "coldsnap");
@@ -209,11 +236,15 @@ public final class EzClimatesPlugin extends JavaPlugin {
     private void run(CommandSender sender, String label, String[] args) {
         String sub = args.length == 0 ? "status" : args[0].toLowerCase(java.util.Locale.ROOT);
         switch (sub) {
+            case "body" -> body.admin(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
             case "status" -> {
                 sender.sendMessage("EZclimates " + getPluginMeta().getVersion() + ": " + EzClimatesBootstrap.copies
                         + " seasonal biomes; rain and snow " + (settings.rainAndSnow() ? "on" : "off") + ", colours "
                         + (settings.colours() ? "on" : "off") + ".");
                 if (!switchedOff().isEmpty()) sender.sendMessage("  " + switchedOff());
+                sender.sendMessage("  Body temperature: " + (body.running() ? "on"
+                        : body.leftToLiveExposure() ? "left to the LiveExposure plugin, which is still installed"
+                        : "off (/hvac addons, EZclimates, Body temperature)") + ".");
                 for (var world : getServer().getWorlds()) {
                     Looks.WorldLook look = looks.worlds.get(world.getUID());
                     if (look != null) sender.sendMessage("  " + world.getName() + ": " + look.stage.key().replace('_', ' ')

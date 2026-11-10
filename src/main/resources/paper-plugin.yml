@@ -4,8 +4,18 @@ main: com.github.blade.ezclimates.EzClimatesPlugin
 bootstrapper: com.github.blade.ezclimates.EzClimatesBootstrap
 api-version: '26.1'
 author: bladestech
-description: Seasons you can see, from EZvac's climate. An addon for EZvac.
+description: Seasons you can see and feel, from EZvac's climate. An addon for EZvac.
 website: https://github.com/EZvac-Plugin/EZclimates
+permissions:
+  ezclimates.admin:
+    description: Allows /ezclimates.
+    default: op
+  liveexposure.use:
+    description: Allows /bodytemp (the name is kept from LiveExposure).
+    default: true
+  liveexposure.bypass:
+    description: Untouched by heat, cold and sickness (the name is kept from LiveExposure).
+    default: false
 dependencies:
   server:
     EZvac:
