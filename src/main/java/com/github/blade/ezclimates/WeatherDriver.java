@@ -66,8 +66,27 @@ public final class WeatherDriver implements WeatherPlan, Listener {
 
     public boolean enabled() { return settings.enabled(); }
 
+    /** Switched in EZvac's Addons menu: off, Minecraft's weather runs itself and no plan is offered. */
+    private boolean on = true;
+
+    public void setOn(boolean on) {
+        if (this.on == on) return;
+        this.on = on;
+        if (on) return;
+        // A snowstorm's dark sky is set right as the plan lets go.
+        for (UUID id : darkened) {
+            World world = org.bukkit.Bukkit.getWorld(id);
+            if (world == null) continue;
+            for (Player player : world.getPlayers())
+                PacketEvents.getAPI().getPlayerManager().sendPacket(player, new WrapperPlayServerChangeGameState(
+                        WrapperPlayServerChangeGameState.Reason.THUNDER_LEVEL_CHANGE, world.isThundering() ? 1.0f : 0.0f));
+        }
+        darkened.clear();
+        if (dirty) save();
+    }
+
     private boolean drives(World world) {
-        return settings.enabled() && world != null && LookUpdater.seasonal(world);
+        return settings.enabled() && on && world != null && LookUpdater.seasonal(world);
     }
 
     /** The season that many days from today, from EZvac's calendar; spring where there are no seasons. */
@@ -95,7 +114,7 @@ public final class WeatherDriver implements WeatherPlan, Listener {
 
     /** Every tick; the weather is set right once a second. */
     public void tick(Iterable<World> worlds) {
-        if (!settings.enabled() || ++ticks % 20 != 0) return;
+        if (!settings.enabled() || !on || ++ticks % 20 != 0) return;
         for (World world : worlds) {
             if (!drives(world)) continue;
             WeatherPlanner.Plan plan = plan(world);

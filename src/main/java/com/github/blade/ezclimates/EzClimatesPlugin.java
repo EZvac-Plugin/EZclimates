@@ -90,9 +90,16 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 getLogger()::warning);
         if (weather.enabled()) {
             getServer().getPluginManager().registerEvents(weather, this);
-            ezvac.setWeatherPlan(this, weather);
             snow.setBoost(weather::snowRate);
         }
+        // EZvac's Addons menu switches EZclimates, and each of its parts, while the server runs.
+        this.ezvac = ezvac;
+        com.github.blade.hvac.api.addon.AddonSwitches switches = ezvac.registerAddon(this, new Switches());
+        active = switches.active();
+        looksOn = switches.partOn(LOOKS);
+        snowOn = switches.partOn(SNOW_AND_ICE);
+        weatherOn = switches.partOn(WEATHER);
+        apply();
         task = getServer().getScheduler().runTaskTimer(this, () -> {
             long start = System.nanoTime();
             weather.tick(getServer().getWorlds());
@@ -114,6 +121,54 @@ public final class EzClimatesPlugin extends JavaPlugin {
         getLogger().info("EZclimates is showing EZvac's seasons: " + EzClimatesBootstrap.copies
                 + " seasonal biomes, rain and snow " + (settings.rainAndSnow() ? "on" : "off")
                 + ", colours " + (settings.colours() ? "on" : "off") + ".");
+    }
+
+    static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather";
+
+    private EzvacApi ezvac;
+    private boolean active = true, looksOn = true, snowOn = true, weatherOn = true;
+
+    /** What EZvac's Addons menu switches: all of EZclimates, and its parts one by one. */
+    private final class Switches implements com.github.blade.hvac.api.addon.Addon {
+        @Override
+        public void setActive(boolean on) {
+            active = on;
+            apply();
+            getLogger().info("EZclimates was switched " + (on ? "on" : "off") + " in EZvac's Addons menu.");
+        }
+
+        @Override
+        public java.util.List<Part> parts() {
+            return java.util.List.of(
+                    new Part(LOOKS, "Seasonal looks", "Rain or snow by EZvac's air, and the leaves' and grass's"
+                            + " colours. Off: players see the world's own biomes.", on -> { looksOn = on; apply(); }),
+                    new Part(SNOW_AND_ICE, "Snow and ice", "Snow that settles and water that freezes. Off: nothing"
+                            + " new is placed, and what is there still melts.", on -> { snowOn = on; apply(); }),
+                    new Part(WEATHER, "Planned weather", "Fronts, snowstorms, heat waves and cold snaps, and"
+                            + " forecasts that come true. Off: Minecraft's weather runs itself.",
+                            on -> { weatherOn = on; apply(); }));
+        }
+    }
+
+    /** Brings every part in line with its switch; a part only runs while EZclimates itself is on. */
+    private void apply() {
+        boolean looksNow = active && looksOn;
+        rewriter.enabled = looksNow;
+        updater.setShowing(looksNow);
+        snow.setPlacing(active && snowOn);
+        boolean weatherNow = active && weatherOn && weather.enabled();
+        weather.setOn(weatherNow);
+        ezvac.setWeatherPlan(this, weatherNow ? weather : null);
+    }
+
+    /** What is switched off in EZvac's Addons menu, for /ezclimates status; empty when nothing is. */
+    private String switchedOff() {
+        if (!active) return "EZclimates is switched off in EZvac's Addons menu (/hvac addons).";
+        java.util.List<String> off = new java.util.ArrayList<>();
+        if (!looksOn) off.add("seasonal looks");
+        if (!snowOn) off.add("snow and ice");
+        if (!weatherOn) off.add("planned weather");
+        return off.isEmpty() ? "" : "Switched off in EZvac's Addons menu (/hvac addons): " + String.join(", ", off) + ".";
     }
 
     @Override
@@ -158,6 +213,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 sender.sendMessage("EZclimates " + getPluginMeta().getVersion() + ": " + EzClimatesBootstrap.copies
                         + " seasonal biomes; rain and snow " + (settings.rainAndSnow() ? "on" : "off") + ", colours "
                         + (settings.colours() ? "on" : "off") + ".");
+                if (!switchedOff().isEmpty()) sender.sendMessage("  " + switchedOff());
                 for (var world : getServer().getWorlds()) {
                     Looks.WorldLook look = looks.worlds.get(world.getUID());
                     if (look != null) sender.sendMessage("  " + world.getName() + ": " + look.stage.key().replace('_', ' ')

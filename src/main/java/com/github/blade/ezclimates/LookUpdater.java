@@ -89,6 +89,15 @@ public final class LookUpdater implements Listener {
         this.settings = settings;
     }
 
+    /**
+     * Switched in EZvac's Addons menu: off, players are shown the world's own
+     * biomes again (their chunks are resent as they are), and no snow lines
+     * are worked out.
+     */
+    private boolean showing = true;
+
+    public void setShowing(boolean showing) { this.showing = showing; }
+
     /** Worlds with a sky get seasons: the Nether and the End are left as they are. */
     static boolean seasonal(World world) {
         return world.getEnvironment() == World.Environment.NORMAL;
@@ -168,7 +177,7 @@ public final class LookUpdater implements Listener {
                     ignored -> new Looks.WorldLook(world.getMinHeight(), world.getMaxHeight() - world.getMinHeight()));
             if (tick % 20 == 0) look.stage = stage(world);
             if (jumped(world)) work.remove(world.getUID());
-            budget = lines(world, look, budget);
+            if (showing) budget = lines(world, look, budget);
         }
         for (World world : worlds) {
             Looks.WorldLook look = looks.worlds.get(world.getUID());
@@ -272,14 +281,15 @@ public final class LookUpdater implements Listener {
         Pending pending = this.pending.computeIfAbsent(player.getUniqueId(),
                 ignored -> new Pending(tick - ThreadLocalRandom.current().nextLong(SCAN_TICKS)));
         ConcurrentHashMap<Long, Looks.Look> sent = looks.sent.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>());
-        Stage stage = look.stage;
+        // Switched off, every chunk should show as the world has it: summer, with each biome's own weather.
+        Stage stage = showing ? look.stage : Stage.SUMMER;
         if (pending.stale.isEmpty()) {
             if (tick - pending.scannedAt < SCAN_TICKS) return;
             pending.scannedAt = tick;
             int px = player.getLocation().getBlockX() >> 4, pz = player.getLocation().getBlockZ() >> 4;
             List<long[]> stale = new ArrayList<>();
             for (long key : chunks) {
-                if (!stale(sent.get(key), stage, look.lines.get(key), look)) continue;
+                if (!stale(sent.get(key), stage, showing ? look.lines.get(key) : null, look)) continue;
                 long dx = Looks.chunkX(key) - px, dz = Looks.chunkZ(key) - pz;
                 stale.add(new long[]{key, dx * dx + dz * dz});
             }
@@ -299,7 +309,7 @@ public final class LookUpdater implements Listener {
             int cx = Looks.chunkX(key), cz = Looks.chunkZ(key);
             // Since it was found: the player may have left it behind, or been sent it afresh.
             if (!chunks.contains(key) || !world.isChunkLoaded(cx, cz)) continue;
-            float[] lines = look.lines.get(key);
+            float[] lines = showing ? look.lines.get(key) : null;
             if (!stale(sent.get(key), stage, lines, look)) continue;
             batch.put(new Vector2i(cx, cz), ChunkRewriter.data(sections(world.getChunkAt(cx, cz), look, map, stage, lines)));
             sent.put(key, new Looks.Look(stage, lines));
@@ -383,7 +393,7 @@ public final class LookUpdater implements Listener {
         int original = map.id(biome);
         Map<Long, Looks.Look> sentTo = looks.sent.get(player.getUniqueId());
         Looks.Look sent = sentTo == null ? null : sentTo.get(key);
-        Looks.Look now = new Looks.Look(look.stage, look.lines.get(key));
+        Looks.Look now = showing ? new Looks.Look(look.stage, look.lines.get(key)) : Looks.Look.ORIGINAL;
         float[] known = look.lines.get(key);
         lines.add("The world's biome here: " + biome + ". Stage " + look.stage.key() + "; the snow line over you "
                 + (known == null ? "not worked out yet" : String.valueOf(known[cellZ * Looks.CELLS + cellX])) + ".");

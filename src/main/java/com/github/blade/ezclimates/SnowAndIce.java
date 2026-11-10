@@ -66,6 +66,11 @@ public final class SnowAndIce implements Listener {
 
     public void setBoost(java.util.function.ToDoubleFunction<World> boost) { this.boost = boost; }
 
+    /** Switched in EZvac's Addons menu: off, nothing new is placed (and vanilla's own snow is let be); what is there still melts. */
+    private boolean placing = true;
+
+    public void setPlacing(boolean placing) { this.placing = placing; }
+
     private final Looks looks;
     /** Chunks whose records changed since they were last written into the chunk, per world. */
     private final Map<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> unsaved = new HashMap<>();
@@ -189,7 +194,7 @@ public final class SnowAndIce implements Listener {
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onForm(BlockFormEvent event) {
-        if (event instanceof EntityBlockFormEvent || !LookUpdater.seasonal(event.getBlock().getWorld())) return;
+        if (!placing || event instanceof EntityBlockFormEvent || !LookUpdater.seasonal(event.getBlock().getWorld())) return;
         Material to = event.getNewState().getType();
         if (to == Material.SNOW && settings.snow()) event.setCancelled(true);
         else if (to == Material.ICE && event.getBlock().getType() == Material.WATER && settings.ice()) event.setCancelled(true);
@@ -201,7 +206,7 @@ public final class SnowAndIce implements Listener {
             gather(worlds);
             flush();
         }
-        if (!clearing && (settings.snow() || settings.ice())) place();
+        if (!clearing && placing && (settings.snow() || settings.ice())) place();
         check();
     }
 
