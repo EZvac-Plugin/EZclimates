@@ -14,6 +14,10 @@ The first release: seasons you can see, from EZvac's climate.
   season, thunderstorm fronts, winter snowstorms (heavy snow, a gale, a dark
   sky, no lightning), heat waves and cold snaps. EZvac's stations forecast
   from the plan, sure for today and tomorrow and less so further out.
+- Plants: crops, stems, cocoa, sugar cane and saplings grow by EZvac's air
+  where they stand, so a heated greenhouse grows through winter; flowers
+  come up in spring and mushrooms under trees in autumn, recorded like snow
+  so only EZclimates' own ever go.
 - Body temperature, as a part that is off until switched on: LiveExposure
   is part of EZclimates now. Its settings are in `body.yml`; a server that
   had LiveExposure gets its `config.yml` and its players' body temperatures
@@ -21,7 +25,8 @@ The first release: seasons you can see, from EZvac's climate.
   counts the sun and the shade. `/bodytemp` stays, `/liveexposure` is
   `/ezclimates body`, and the HUD section is `{section:ezclimates:body}`.
 - Switched from EZvac's Addons menu (`/hvac addons`), all of it or a part at
-  a time: seasonal looks, snow and ice, planned weather, body temperature.
+  a time: seasonal looks, snow and ice, planned weather, plants, body
+  temperature.
 - `/ezclimates status`, `here`, `weather`, `body`, `clear` and `resume`.
 - Needs Paper or Purpur 26.1+, EZvac BETA 1.0 Pilot 4 (API 1.9) and
   packetevents 2.14.0.

@@ -92,6 +92,10 @@ public final class EzClimatesPlugin extends JavaPlugin {
             getServer().getPluginManager().registerEvents(weather, this);
             snow.setBoost(weather::snowRate);
         }
+        // Plants: crops grow by EZvac's air where they stand; flowers in spring, mushrooms in autumn.
+        plants = new Plants(this, ezvac, PlantSettings.load(getConfig().getConfigurationSection("plants"),
+                getLogger()::warning), snow);
+        getServer().getPluginManager().registerEvents(plants, this);
         // Body temperature: LiveExposure, now a part of EZclimates. Off until a server switches it on.
         body = new com.github.blade.ezclimates.body.BodyTemperature(this, ezvac);
         body.prepare();
@@ -102,6 +106,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         looksOn = switches.partOn(LOOKS);
         snowOn = switches.partOn(SNOW_AND_ICE);
         weatherOn = switches.partOn(WEATHER);
+        plantsOn = switches.partOn(PLANTS);
         bodyOn = switches.partOn(BODY);
         apply();
         if (body.leftToLiveExposure())
@@ -125,6 +130,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
             updater.tick(getServer().getWorlds());
             long looked = System.nanoTime();
             snow.tick(getServer().getWorlds());
+            plants.tick();
             long done = System.nanoTime();
             timing[0] += planned - start;
             timing[1] += looked - planned;
@@ -141,7 +147,11 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 + ", colours " + (settings.colours() ? "on" : "off") + ".");
     }
 
-    static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather", BODY = "body";
+    static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather", PLANTS = "plants",
+            BODY = "body";
+
+    private Plants plants;
+    private boolean plantsOn = true;
 
     private EzvacApi ezvac;
     private com.github.blade.ezclimates.body.BodyTemperature body;
@@ -166,6 +176,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
                     new Part(WEATHER, "Planned weather", "Fronts, snowstorms, heat waves and cold snaps, and"
                             + " forecasts that come true. Off: Minecraft's weather runs itself.",
                             on -> { weatherOn = on; apply(); }),
+                    new Part(PLANTS, "Plants", "Crops and saplings grow by EZvac's air where they stand, so a heated"
+                            + " greenhouse grows through winter; flowers in spring, mushrooms in autumn. Off: all as"
+                            + " in vanilla.", on -> { plantsOn = on; apply(); }),
                     new Part(BODY, "Body temperature", "Heat and cold that wear down survival players, and sickness"
                             + " (LiveExposure). It can kill: see body.yml. Off: nobody's body changes.",
                             on -> { bodyOn = on; apply(); }, body.onByDefault()));
@@ -181,6 +194,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         boolean weatherNow = active && weatherOn && weather.enabled();
         weather.setOn(weatherNow);
         ezvac.setWeatherPlan(this, weatherNow ? weather : null);
+        plants.setOn(active && plantsOn);
         body.setRunning(active && bodyOn);
     }
 
@@ -191,6 +205,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         if (!looksOn) off.add("seasonal looks");
         if (!snowOn) off.add("snow and ice");
         if (!weatherOn) off.add("planned weather");
+        if (!plantsOn) off.add("plants");
         if (!bodyOn && body.onByDefault()) off.add("body temperature");
         return off.isEmpty() ? "" : "Switched off in EZvac's Addons menu (/hvac addons): " + String.join(", ", off) + ".";
     }
@@ -220,7 +235,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         @Override
         public java.util.Collection<String> suggest(io.papermc.paper.command.brigadier.CommandSourceStack source,
                                                     String[] args) {
-            if (args.length <= 1) return List.of("status", "here", "weather", "body", "clear", "resume");
+            if (args.length <= 1) return List.of("status", "here", "weather", "body", "adopt", "clear", "resume");
             if (args[0].equalsIgnoreCase("body"))
                 return body.complete(java.util.Arrays.copyOfRange(args, 1, args.length));
             if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "replan");
@@ -236,6 +251,24 @@ public final class EzClimatesPlugin extends JavaPlugin {
     private void run(CommandSender sender, String label, String[] args) {
         String sub = args.length == 0 ? "status" : args[0].toLowerCase(java.util.Locale.ROOT);
         switch (sub) {
+            case "adopt" -> {
+                if (!(sender instanceof org.bukkit.entity.Player player)) {
+                    sender.sendMessage("Stand where the stray snow is, and run /" + label + " adopt [blocks] in game.");
+                    return;
+                }
+                int radius = 64;
+                try {
+                    if (args.length >= 2) radius = Math.max(1, Math.min(128, Integer.parseInt(args[1])));
+                } catch (NumberFormatException notANumber) {
+                    sender.sendMessage("Usage: /" + label + " adopt [blocks, 1 to 128]");
+                    return;
+                }
+                int adopted = snow.adopt(player.getWorld(), player.getLocation().getBlockX(),
+                        player.getLocation().getBlockZ(), radius);
+                sender.sendMessage(adopted == 0 ? "No unrecorded thin snow within " + radius + " blocks."
+                        : "Took on " + adopted + " block(s) of unrecorded snow within " + radius + " blocks: they melt"
+                        + " like EZclimates' own now, once the air is above 34 F.");
+            }
             case "body" -> body.admin(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
             case "status" -> {
                 sender.sendMessage("EZclimates " + getPluginMeta().getVersion() + ": " + EzClimatesBootstrap.copies
@@ -258,6 +291,10 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 sender.sendMessage("  Snow and ice in loaded chunks: " + recorded[0] + " snow, " + recorded[1]
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
                         + (snow.clearing() ? ". Clearing: nothing new is placed (/ezclimates resume)." : "."));
+                int[] grown = plants.counts();
+                sender.sendMessage("  Plants: " + recorded[2] + " flowers and mushrooms in loaded chunks (" + grown[2]
+                        + " came up, " + snow.plantsGone() + " went); crops held back " + grown[0] + " times and"
+                        + " hurried " + grown[1] + " since start.");
             }
             case "debug" -> {
                 if (args.length >= 3 && args[1].equalsIgnoreCase("rewrite")) {
@@ -312,6 +349,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 if (named != null) {
                     at = named.getLocation();
                     for (String line : snow.describe(at.getWorld(), at.getBlockX(), at.getBlockZ())) sender.sendMessage(line);
+                    for (String line : plants.describe(at)) sender.sendMessage(line);
                     for (String line : updater.shownTo(named)) sender.sendMessage(line);
                     return;
                 }
@@ -329,6 +367,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
                     return;
                 }
                 for (String line : snow.describe(at.getWorld(), at.getBlockX(), at.getBlockZ())) sender.sendMessage(line);
+                for (String line : plants.describe(at)) sender.sendMessage(line);
                 if (sender instanceof org.bukkit.entity.Player player)
                     for (String line : updater.shownTo(player)) sender.sendMessage(line);
             }

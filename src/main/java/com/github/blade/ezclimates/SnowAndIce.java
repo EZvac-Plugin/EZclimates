@@ -66,6 +66,44 @@ public final class SnowAndIce implements Listener {
 
     public void setBoost(java.util.function.ToDoubleFunction<World> boost) { this.boost = boost; }
 
+    /** What counts as a plant of EZclimates' own, and whether a recorded one goes at this look: set by {@link Plants}. */
+    private java.util.function.Predicate<Material> plantKind = type -> false;
+    private java.util.function.Predicate<Block> plantGoes = block -> true;
+
+    public void setPlantRule(java.util.function.Predicate<Material> kind, java.util.function.Predicate<Block> goes) {
+        this.plantKind = kind;
+        this.plantGoes = goes;
+    }
+
+    /** How many chunks snow, ice and plants may come up in right now. */
+    public int areaSize() { return area.size(); }
+
+    /** The top block of a random column in a random chunk round players, or null where that isn't loaded. */
+    public Block randomGround(java.util.Random random, HeightMap heightMap) {
+        if (area.isEmpty()) return null;
+        long[] chunk = area.get(random.nextInt(area.size()));
+        World world = org.bukkit.Bukkit.getWorld(new UUID(chunk[0], chunk[1]));
+        int cx = Looks.chunkX(chunk[2]), cz = Looks.chunkZ(chunk[2]);
+        if (world == null || !world.isChunkLoaded(cx, cz)) return null;
+        return world.getHighestBlockAt((cx << 4) + random.nextInt(16), (cz << 4) + random.nextInt(16), heightMap);
+    }
+
+    /** Records a flower or mushroom just placed, so it is taken away again later and nothing else is. */
+    public void recordPlant(Block plant) {
+        Placed placed = placedIn(plant.getChunk(), true);
+        placed.add(Placed.pack(plant.getX() & 15, plant.getY(), plant.getZ() & 15, Placed.What.PLANT));
+        save(plant.getChunk(), placed);
+    }
+
+    /** The flowers and mushrooms recorded in a chunk. */
+    public int plantsIn(Chunk chunk) {
+        Placed placed = placedIn(chunk, false);
+        if (placed == null) return 0;
+        int count = 0;
+        for (int i = 0; i < placed.size(); i++) if (Placed.what(placed.get(i)) == Placed.What.PLANT) count++;
+        return count;
+    }
+
     /** Switched in EZvac's Addons menu: off, nothing new is placed (and vanilla's own snow is let be); what is there still melts. */
     private boolean placing = true;
 
@@ -140,10 +178,14 @@ public final class SnowAndIce implements Listener {
                 chunk.getWorld().getUID().getLeastSignificantBits(), Looks.chunkKey(chunk.getX(), chunk.getZ())});
     }
 
-    /** Marks a chunk's records to be written into it: once a second, or as it unloads. */
+    /**
+     * Writes a chunk's records into it at once, in the same tick as the
+     * block they are about. They used to follow within a second, and a
+     * server killed in between kept the block without its record: snow that
+     * nothing would ever melt.
+     */
     private void save(Chunk chunk, Placed placed) {
-        unsaved.computeIfAbsent(chunk.getWorld().getUID(), ignored -> new it.unimi.dsi.fastutil.longs.LongOpenHashSet())
-                .add(Looks.chunkKey(chunk.getX(), chunk.getZ()));
+        write(chunk, placed);
     }
 
     /** Writes every changed chunk's records into the chunk. */
@@ -164,6 +206,8 @@ public final class SnowAndIce implements Listener {
     private void write(Chunk chunk, Placed placed) {
         if (placed.isEmpty()) chunk.getPersistentDataContainer().remove(key);
         else chunk.getPersistentDataContainer().set(key, PersistentDataType.INTEGER_ARRAY, placed.toArray());
+        // What the snow covers is longer to write, and changes less often.
+        if (!placed.takeCoveredChanged()) return;
         String covered = placed.coveredText();
         if (covered == null) chunk.getPersistentDataContainer().remove(coveredKey);
         else chunk.getPersistentDataContainer().set(coveredKey, PersistentDataType.STRING, covered);
@@ -456,6 +500,18 @@ public final class SnowAndIce implements Listener {
                         meltedTotal++;
                     }
                     changed = true;
+                } else if (Placed.what(entry) == Placed.What.PLANT) {
+                    Material type = block.getType();
+                    // Buried by snow: it comes back when the snow melts, and is looked at again then.
+                    if (type == Material.SNOW && placed.contains(Placed.pack(Placed.x(entry), Placed.y(entry),
+                            Placed.z(entry), Placed.What.SNOW))) continue;
+                    // Picked, or something else stands there now: forgotten, never removed.
+                    if (!plantKind.test(type)) { placed.remove(entry); changed = true; continue; }
+                    if (!clearing && !plantGoes.test(block)) continue;
+                    block.setType(Material.AIR, false);
+                    placed.remove(entry);
+                    plantsGone++;
+                    changed = true;
                 } else {
                     if (block.getType() != Material.ICE) { placed.remove(entry); changed = true; continue; }
                     if (!clearing) {
@@ -527,14 +583,53 @@ public final class SnowAndIce implements Listener {
 
     public boolean clearing() { return clearing; }
 
-    /** Recorded blocks in loaded chunks: snow, then ice. */
+    /**
+     * Takes on thin snow that nobody recorded, round a spot, so it melts
+     * like EZclimates' own: for snow left behind by a server that was
+     * killed before its records were written (before 0.1.0 wrote them at
+     * once). Only snow lying on top, no deeper than EZclimates lays it, in
+     * biomes where Minecraft's own weather never snows, so a snowy biome's
+     * own snow is never touched. A player's own thin snow there would be
+     * taken on too, which is why this is a command and never automatic.
+     *
+     * @return how many blocks of snow were taken on
+     */
+    public int adopt(World world, int cx, int cz, int radius) {
+        int adopted = 0;
+        for (int x = cx - radius; x <= cx + radius; x++)
+            for (int z = cz - radius; z <= cz + radius; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
+                Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
+                Block snow = top.getType() == Material.SNOW ? top : top.getRelative(BlockFace.UP);
+                if (snow.getType() != Material.SNOW || !(snow.getBlockData() instanceof Snow layers)) continue;
+                if (layers.getLayers() > Math.min(8, settings.maxLayers() + 1)) continue;
+                if (world.getTemperature(x, snow.getY(), z) < Kind.SNOW_BELOW) continue;
+                Placed placed = placedIn(snow.getChunk(), true);
+                if (!placed.add(Placed.pack(x & 15, snow.getY(), z & 15, Placed.What.SNOW))) continue;
+                save(snow.getChunk(), placed);
+                adopted++;
+            }
+        if (adopted > 0) queue.clear();   // looked over from the start, so it melts soon where it's warm
+        return adopted;
+    }
+
+    private int plantsGone;
+
+    /** Flowers and mushrooms taken away again since start. */
+    public int plantsGone() { return plantsGone; }
+
+    /** Recorded blocks in loaded chunks: snow, then ice, then flowers and mushrooms. */
     public int[] recorded() {
-        int snow = 0, ice = 0;
+        int snow = 0, ice = 0, plants = 0;
         for (Long2ObjectOpenHashMap<Placed> chunks : records.values())
             for (Placed placed : chunks.values())
                 for (int i = 0; i < placed.size(); i++)
-                    if (Placed.what(placed.get(i)) == Placed.What.SNOW) snow++; else ice++;
-        return new int[]{snow, ice};
+                    switch (Placed.what(placed.get(i))) {
+                        case SNOW -> snow++;
+                        case PLANT -> plants++;
+                        default -> ice++;
+                    }
+        return new int[]{snow, ice, plants};
     }
 
     /**

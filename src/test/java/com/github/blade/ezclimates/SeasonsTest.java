@@ -167,6 +167,11 @@ class SeasonsTest {
         assertFalse(Looks.same(a, new Looks.Look(Stage.WINTER, one), -64, 384), "one column snowing is a change");
         assertFalse(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, lines(Float.NaN)), -64, 384));
         assertTrue(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, null), -64, 384));
+        // A flower or mushroom is recorded like snow, at the same spot and apart from it.
+        int flower = Placed.pack(7, 70, 9, Placed.What.PLANT), snow = Placed.pack(7, 70, 9, Placed.What.SNOW);
+        assertEquals(Placed.What.PLANT, Placed.what(flower));
+        assertEquals(70, Placed.y(flower));
+        assertNotEquals(flower, snow);
         // A line's band says all its column shows: checked against every cell, for lines of every kind.
         float[] probes = {Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, -500f, -64f, -62f, -61.9f, -58f,
                 0f, 61.5f, 62f, 62.5f, 65.9f, 66f, 317.9f, 318f, 318.1f, 320f, 5000f};

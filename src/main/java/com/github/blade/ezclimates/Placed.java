@@ -3,15 +3,18 @@ package com.github.blade.ezclimates;
 import java.util.Arrays;
 
 /**
- * The record of every block of snow and ice EZclimates placed in a chunk,
+ * The record of every block of snow and ice, and every flower and mushroom, EZclimates placed in a chunk,
  * kept in the chunk's own saved data so it lives with the world: one number
  * per block (its x and z in the chunk, its height, and what it is). Only
  * recorded blocks are ever melted, so a player's own snow, the snow of snowy
  * biomes and the world's own ice are never touched.
  */
 public final class Placed {
-    /** Snow, ice frozen by the water's own cold, or skim ice frozen by a hard frost (melts by the air). */
-    public enum What { SNOW, ICE, SKIM }
+    /**
+     * Snow, ice frozen by the water's own cold, skim ice frozen by a hard
+     * frost (melts by the air), or a flower or mushroom the season brought up.
+     */
+    public enum What { SNOW, ICE, SKIM, PLANT }
 
     private int[] entries;
     private int size;
@@ -45,11 +48,28 @@ public final class Placed {
 
     public Placed() { this(null, null); }
 
+    /** Whether what the snow covers changed since it was last written into the chunk. */
+    private boolean coveredChanged;
+
     /** Records what a block of snow covered. */
-    public void cover(int entry, String blockData) { covered.put(entry, blockData); }
+    public void cover(int entry, String blockData) {
+        covered.put(entry, blockData);
+        coveredChanged = true;
+    }
 
     /** What a block of snow covered, or null; it is forgotten. */
-    public String uncover(int entry) { return covered.remove(entry); }
+    public String uncover(int entry) {
+        String was = covered.remove(entry);
+        if (was != null) coveredChanged = true;
+        return was;
+    }
+
+    /** True once after what the snow covers changed: the caller writes it into the chunk. */
+    public boolean takeCoveredChanged() {
+        boolean changed = coveredChanged;
+        coveredChanged = false;
+        return changed;
+    }
 
     /** What the snow covers, to save; null when nothing. */
     public String coveredText() {
@@ -95,7 +115,7 @@ public final class Placed {
     }
 
     public boolean remove(int entry) {
-        covered.remove(entry);
+        if (covered.remove(entry) != null) coveredChanged = true;
         int index = at.remove(entry);
         if (index < 0) return false;
         int last = entries[--size];

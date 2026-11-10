@@ -129,6 +129,42 @@ weather:
     revise-chance: 0.3
     certainty-loss-per-day: 0.15
 
+# Plants that follow EZvac's climate.
+#
+# Crops, stems, cocoa, sugar cane, berry bushes, mushrooms and saplings grow
+# by EZvac's air where they stand (the same reading a thermometer there
+# gives): not at all at stops-below-f or colder, rising to their usual pace
+# at full-from-f, slower again above slows-above-f and not at all at
+# stops-above-f. In the warm band, air at 60% humidity or more grows them
+# humid-boost times as fast, and air under 30% leaves dry-factor of it. A
+# greenhouse an EZvac system keeps warm grows through winter while the field
+# outside waits for spring. Bone meal works as ever; kelp, bamboo, cactus
+# and the Nether's plants are left alone.
+#
+# Flowers come up on open grass in spring (in air of 45 F or warmer) and
+# mushrooms under trees in autumn (and on podzol and mycelium), round
+# players, at most max-per-chunk of them
+# in a chunk; rate is how fast (1 fills a chunk over some minutes). Flowers
+# last through summer and die back in autumn, at once in winter or a hard
+# frost; mushrooms go when autumn is over. Each is recorded in its chunk
+# like snow, so only EZclimates' own are ever taken away: a flower a player
+# planted stays, and one a player picks is theirs. /hvac addons switches all
+# of this (EZclimates, Plants); /ezclimates here says how fast crops grow
+# where you stand, and why.
+plants:
+  crops:
+    enabled: true
+    stops-below-f: 36.0
+    full-from-f: 60.0
+    slows-above-f: 95.0
+    stops-above-f: 115.0
+    humid-boost: 1.5
+    dry-factor: 0.75
+  flowers: true
+  mushrooms: true
+  max-per-chunk: 4
+  rate: 1.0
+
 # How much work each tick may do. Snow lines are worked out for the chunks
 # round players (snow-lines-per-tick counts chunks, 16 lines each: rain and
 # snow meet along EZvac's own wavy edge, 4 blocks at a time); when one changes (rain turning to snow, a new stage), the
