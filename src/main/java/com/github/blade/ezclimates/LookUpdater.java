@@ -14,6 +14,8 @@ import com.github.retrooper.packetevents.util.Vector2i;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChunkBiomes;
 import io.papermc.paper.event.packet.PlayerChunkLoadEvent;
 import io.papermc.paper.event.packet.PlayerChunkUnloadEvent;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.bukkit.Chunk;
 import org.bukkit.ChunkSnapshot;
@@ -29,6 +31,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerRespawnEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -37,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * The main thread's half: works out each world's stage and the snow line of
@@ -51,8 +55,28 @@ public final class LookUpdater implements Listener {
     private final Looks looks;
     private final ChunkRewriter rewriter;
     private final Settings settings;
-    /** When each world's lines were worked out, per chunk. */
-    private final Map<UUID, Map<Long, Long>> computedAt = new HashMap<>();
+    /** How often the chunks round players, and each player's own, are looked over, in ticks: twice a second. */
+    static final long SCAN_TICKS = 10L;
+
+    /** A world's snow lines: when each chunk's were worked out, and the chunks waiting for theirs, nearest first. */
+    private static final class LineWork {
+        final Long2LongOpenHashMap at = new Long2LongOpenHashMap();
+        final ArrayDeque<long[]> wanted = new ArrayDeque<>();
+        long scannedAt = -SCAN_TICKS, purgedAt;
+
+        LineWork() { at.defaultReturnValue(Long.MIN_VALUE); }
+    }
+
+    /** A player's chunks found out of date at the last look over them, nearest first. */
+    private static final class Pending {
+        final ArrayDeque<long[]> stale = new ArrayDeque<>();
+        long scannedAt;
+
+        Pending(long scannedAt) { this.scannedAt = scannedAt; }
+    }
+
+    private final Map<UUID, LineWork> work = new HashMap<>();
+    private final Map<UUID, Pending> pending = new HashMap<>();
     /** The chunks each player has, as Paper reports them. */
     private final Map<UUID, LongOpenHashSet> loaded = new HashMap<>();
     private long tick;
@@ -76,6 +100,7 @@ public final class LookUpdater implements Listener {
 
     private void placed(Player player, World world) {
         looks.sent.remove(player.getUniqueId());
+        pending.remove(player.getUniqueId());
         if (seasonal(world)) {
             looks.worlds.computeIfAbsent(world.getUID(), ignored -> new Looks.WorldLook(world.getMinHeight(),
                     world.getMaxHeight() - world.getMinHeight()));
@@ -114,6 +139,7 @@ public final class LookUpdater implements Listener {
         looks.playerWorld.remove(id);
         looks.sent.remove(id);
         loaded.remove(id);
+        pending.remove(id);
         rewriter.forget(id);
     }
 
@@ -141,7 +167,7 @@ public final class LookUpdater implements Listener {
             Looks.WorldLook look = looks.worlds.computeIfAbsent(world.getUID(),
                     ignored -> new Looks.WorldLook(world.getMinHeight(), world.getMaxHeight() - world.getMinHeight()));
             if (tick % 20 == 0) look.stage = stage(world);
-            if (jumped(world)) computedAt.remove(world.getUID());
+            if (jumped(world)) work.remove(world.getUID());
             budget = lines(world, look, budget);
         }
         for (World world : worlds) {
@@ -174,14 +200,39 @@ public final class LookUpdater implements Listener {
         return ezvac.season(world).map(SeasonView::progress).map(Stage::at).orElse(Stage.SUMMER);
     }
 
-    /** Works out snow lines round the world's players, nearest and oldest first, within the budget. */
+    /**
+     * Works out snow lines round the world's players, nearest and oldest
+     * first, within the budget. Which chunks need theirs is looked for twice
+     * a second; in between, the ones found are worked through.
+     */
     private int lines(World world, Looks.WorldLook look, int budget) {
-        Map<Long, Long> when = computedAt.computeIfAbsent(world.getUID(), ignored -> new HashMap<>());
+        LineWork work = this.work.computeIfAbsent(world.getUID(), ignored -> new LineWork());
         if (!settings.rainAndSnow()) {
             look.lines.clear();
-            when.clear();
+            work.at.clear();
+            work.wanted.clear();
             return budget;
         }
+        if (tick - work.scannedAt >= SCAN_TICKS) wanted(world, look, work);
+        while (budget > 0 && !work.wanted.isEmpty()) {
+            long key = work.wanted.pollFirst()[0];
+            // One line per 4x4 column of biome cells, so rain meets snow along EZvac's own edge.
+            float[] lines = new float[Looks.CELLS * Looks.CELLS];
+            int baseX = Looks.chunkX(key) * 16, baseZ = Looks.chunkZ(key) * 16;
+            for (int cz = 0; cz < Looks.CELLS; cz++)
+                for (int cx = 0; cx < Looks.CELLS; cx++)
+                    lines[cz * Looks.CELLS + cx] = (float) ezvac.snowLineAt(world, baseX + Looks.cellMiddle(cx),
+                            baseZ + Looks.cellMiddle(cz));
+            look.lines.put(key, lines);
+            work.at.put(key, tick);
+            budget--;
+        }
+        return budget;
+    }
+
+    /** Looks round the world's players for chunks without snow lines, or with old ones, and forgets far ones. */
+    private void wanted(World world, Looks.WorldLook look, LineWork work) {
+        work.scannedAt = tick;
         int radius = world.getViewDistance() + 1;
         LongOpenHashSet near = new LongOpenHashSet();
         List<long[]> wanted = new ArrayList<>();
@@ -191,68 +242,79 @@ public final class LookUpdater implements Listener {
                 for (int dz = -radius; dz <= radius; dz++) {
                     long key = Looks.chunkKey(px + dx, pz + dz);
                     if (!near.add(key)) continue;
-                    Long at = when.get(key);
-                    if (at != null && tick - at < LINE_TICKS) continue;
+                    long at = work.at.get(key);
+                    boolean never = at == Long.MIN_VALUE;
+                    if (!never && tick - at < LINE_TICKS) continue;
                     // Missing ones first, then by distance.
-                    wanted.add(new long[]{key, (at == null ? 0 : 1_000_000L) + (long) dx * dx + (long) dz * dz});
+                    wanted.add(new long[]{key, (never ? 0 : 1_000_000L) + (long) dx * dx + (long) dz * dz});
                 }
         }
         wanted.sort(Comparator.comparingLong(entry -> entry[1]));
-        for (long[] entry : wanted) {
-            if (budget <= 0) break;
-            long key = entry[0];
-            // One line per 4x4 column of biome cells, so rain meets snow along EZvac's own edge.
-            float[] lines = new float[Looks.CELLS * Looks.CELLS];
-            int baseX = Looks.chunkX(key) * 16, baseZ = Looks.chunkZ(key) * 16;
-            for (int cz = 0; cz < Looks.CELLS; cz++)
-                for (int cx = 0; cx < Looks.CELLS; cx++)
-                    lines[cz * Looks.CELLS + cx] = (float) ezvac.snowLineAt(world, baseX + Looks.cellMiddle(cx),
-                            baseZ + Looks.cellMiddle(cz));
-            look.lines.put(key, lines);
-            when.put(key, tick);
-            budget--;
-        }
+        work.wanted.clear();
+        work.wanted.addAll(wanted);
         // Forget chunks no one is near.
-        if (tick % 200 == 0) {
-            when.keySet().removeIf(key -> !near.contains(key));
+        if (tick - work.purgedAt >= 200) {
+            work.purgedAt = tick;
+            for (LongIterator known = work.at.keySet().iterator(); known.hasNext(); )
+                if (!near.contains(known.nextLong())) known.remove();
             look.lines.keySet().removeIf(key -> !near.contains(key));
         }
-        return budget;
     }
 
-    /** Resends a player's chunks whose look changed, nearest first. */
+    /**
+     * Resends a player's chunks whose look changed, nearest first. Their
+     * chunks are looked over twice a second, each player on their own tick;
+     * in between, the ones found out of date are sent, a few a tick.
+     */
     private void resend(Player player, World world, Looks.WorldLook look) {
         LongOpenHashSet chunks = loaded.get(player.getUniqueId());
         if (chunks == null || chunks.isEmpty()) return;
+        Pending pending = this.pending.computeIfAbsent(player.getUniqueId(),
+                ignored -> new Pending(tick - ThreadLocalRandom.current().nextLong(SCAN_TICKS)));
         ConcurrentHashMap<Long, Looks.Look> sent = looks.sent.computeIfAbsent(player.getUniqueId(), ignored -> new ConcurrentHashMap<>());
         Stage stage = look.stage;
-        int px = player.getLocation().getBlockX() >> 4, pz = player.getLocation().getBlockZ() >> 4;
-        List<long[]> stale = new ArrayList<>();
-        for (long key : chunks) {
-            Looks.Look now = new Looks.Look(stage, look.lines.get(key));
-            Looks.Look before = sent.get(key);
-            if (Looks.same(before == null ? Looks.Look.ORIGINAL : before, now, look.minY, look.height)) continue;
-            long dx = Looks.chunkX(key) - px, dz = Looks.chunkZ(key) - pz;
-            stale.add(new long[]{key, dx * dx + dz * dz});
+        if (pending.stale.isEmpty()) {
+            if (tick - pending.scannedAt < SCAN_TICKS) return;
+            pending.scannedAt = tick;
+            int px = player.getLocation().getBlockX() >> 4, pz = player.getLocation().getBlockZ() >> 4;
+            List<long[]> stale = new ArrayList<>();
+            for (long key : chunks) {
+                if (!stale(sent.get(key), stage, look.lines.get(key), look)) continue;
+                long dx = Looks.chunkX(key) - px, dz = Looks.chunkZ(key) - pz;
+                stale.add(new long[]{key, dx * dx + dz * dz});
+            }
+            if (stale.isEmpty()) return;
+            stale.sort(Comparator.comparingLong(entry -> entry[1]));
+            pending.stale.addAll(stale);
         }
-        if (stale.isEmpty()) return;
-        stale.sort(Comparator.comparingLong(entry -> entry[1]));
         User user = PacketEvents.getAPI().getPlayerManager().getUser(player);
         IdMap map = user == null ? null : rewriter.ids(user);
-        if (map == null || map.isEmpty()) return;
+        if (map == null || map.isEmpty()) {
+            pending.stale.clear();
+            return;
+        }
         Map<Vector2i, WrapperPlayServerChunkBiomes.ChunkBiomeData> batch = new LinkedHashMap<>();
-        for (long[] entry : stale) {
-            if (batch.size() >= settings.chunksPerTick()) break;
-            int cx = Looks.chunkX(entry[0]), cz = Looks.chunkZ(entry[0]);
-            if (!world.isChunkLoaded(cx, cz)) continue;
-            float[] lines = look.lines.get(entry[0]);
+        while (!pending.stale.isEmpty() && batch.size() < settings.chunksPerTick()) {
+            long key = pending.stale.pollFirst()[0];
+            int cx = Looks.chunkX(key), cz = Looks.chunkZ(key);
+            // Since it was found: the player may have left it behind, or been sent it afresh.
+            if (!chunks.contains(key) || !world.isChunkLoaded(cx, cz)) continue;
+            float[] lines = look.lines.get(key);
+            if (!stale(sent.get(key), stage, lines, look)) continue;
             batch.put(new Vector2i(cx, cz), ChunkRewriter.data(sections(world.getChunkAt(cx, cz), look, map, stage, lines)));
-            sent.put(entry[0], new Looks.Look(stage, lines));
+            sent.put(key, new Looks.Look(stage, lines));
         }
         if (batch.isEmpty()) return;
         // Silently: these already show the copies, so the rewriter leaves them alone.
         PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, new WrapperPlayServerChunkBiomes(batch));
         resentTotal += batch.size();
+    }
+
+    /** Whether what a player was sent for a chunk no longer shows what it should now. */
+    private static boolean stale(Looks.Look before, Stage stage, float[] lines, Looks.WorldLook look) {
+        if (before == null) before = Looks.Look.ORIGINAL;
+        if (before.stage() == stage && before.lines() == lines) return false;
+        return !Looks.same(before, new Looks.Look(stage, lines), look.minY, look.height);
     }
 
     /** A loaded chunk's biomes as the player should see them, section by section. */

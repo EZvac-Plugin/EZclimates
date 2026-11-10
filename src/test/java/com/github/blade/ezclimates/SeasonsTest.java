@@ -167,6 +167,16 @@ class SeasonsTest {
         assertFalse(Looks.same(a, new Looks.Look(Stage.WINTER, one), -64, 384), "one column snowing is a change");
         assertFalse(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, lines(Float.NaN)), -64, 384));
         assertTrue(Looks.same(Looks.Look.ORIGINAL, new Looks.Look(Stage.SUMMER, null), -64, 384));
+        // A line's band says all its column shows: checked against every cell, for lines of every kind.
+        float[] probes = {Float.NaN, Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, -500f, -64f, -62f, -61.9f, -58f,
+                0f, 61.5f, 62f, 62.5f, 65.9f, 66f, 317.9f, 318f, 318.1f, 320f, 5000f};
+        for (float first : probes)
+            for (float second : probes) {
+                boolean cellByCell = true;
+                for (int y = -62; y < 320; y += 4) cellByCell &= Kind.at(first, y) == Kind.at(second, y);
+                assertEquals(cellByCell, Looks.band(first, -64, 384) == Looks.band(second, -64, 384),
+                        first + " against " + second);
+            }
         assertEquals(Kind.SNOW, Looks.kind(one, 1, 1, -60), "cell x 1, z 1 is line 5");
         assertEquals(Kind.RAIN, Looks.kind(one, 0, 1, -60));
         assertNull(Looks.kind(null, 0, 0, 64), "no lines: the biome's own weather");

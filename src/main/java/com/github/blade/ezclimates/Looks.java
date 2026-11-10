@@ -1,6 +1,5 @@
 package com.github.blade.ezclimates;
 
-import java.util.Arrays;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -67,10 +66,22 @@ public final class Looks {
         if (a == b) return true;
         if (a == null || b == null || a.stage() != b.stage()) return false;
         if (a.lines() == null || b.lines() == null) return a.lines() == b.lines();
-        if (Arrays.equals(a.lines(), b.lines())) return true;
+        if (a.lines() == b.lines()) return true;
         for (int cell = 0; cell < CELLS * CELLS; cell++)
-            for (int y = minY + CELL_BLOCKS / 2; y < minY + height; y += CELL_BLOCKS)
-                if (Kind.at(a.lines()[cell], y) != Kind.at(b.lines()[cell], y)) return false;
+            if (band(a.lines()[cell], minY, height) != band(b.lines()[cell], minY, height)) return false;
         return true;
+    }
+
+    /**
+     * How many of a column's biome cells, from the bottom of a world this
+     * tall, are at or below a snow line (they rain; the rest snow), or -1
+     * where rain doesn't reach. Two lines with the same band show the same,
+     * which is all a comparison needs: the lines themselves move a little
+     * every time they are worked out.
+     */
+    static int band(float line, int minY, int height) {
+        if (Float.isNaN(line)) return -1;
+        double below = Math.floor((line - (minY + CELL_BLOCKS / 2.0)) / CELL_BLOCKS) + 1.0;
+        return (int) Math.max(0.0, Math.min(height / CELL_BLOCKS, below));
     }
 }
