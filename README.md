@@ -1,6 +1,6 @@
 # EZclimates
 
-**Seasons you can see, from [EZvac](https://github.com/EZvac-Plugin/EZvac)'s climate.** An official EZvac addon.
+**Seasons you can see and feel, from [EZvac](https://github.com/EZvac-Plugin/EZvac)'s climate.** An official EZvac addon.
 
 - **Rain and snow where EZvac says.** While it rains, snow falls wherever EZvac's air is at or below 33 °F, and rain elsewhere. The season, the height and the time of day all count: the plains snow in a cold winter, a mountain snows at the top and rains at its foot, and a desert gets rain in a thunderstorm (EZvac's `weather.dry-areas`).
 - **Leaves and grass through the year:** fresh in spring, as vanilla in summer, yellowing in early autumn, orange-red in late autumn, dull in winter. Broadleaf forests turn most, jungles barely. Birch and spruce leaves keep their fixed colours, as in vanilla.
@@ -9,6 +9,8 @@
 - **Nothing stays forever.** Every block of snow and ice EZclimates places is recorded in its chunk, and only recorded blocks melt, so a player's own snow and the world's own snow and ice are never touched. A chunk that was unloaded through a thaw catches up as it loads.
 - **The world keeps its own biomes.** The seasons are seasonal copies of the biomes, shown only in what each player is sent. Removing EZclimates leaves no trace: run `/ezclimates clear` first to melt what it placed.
 - **The weather, planned.** EZclimates plans each world's weather days ahead and drives Minecraft's to match, so EZvac's weather stations forecast what will really happen: fronts of rain or snow between dry spells by the season, **thunderstorm fronts**, **snowstorms** in winter (heavy snow, a gale, a dark sky without lightning, snow piling up fast), and **heat waves** and **cold snaps** that move EZvac's air for days, so rooms, HVAC, rain or snow and lakes all feel them. Today and tomorrow are certain; later days can still shift, and forecasts say so. `/weather` and sleeping through a storm still work.
+- **Body temperature** (LiveExposure, now part of EZclimates; off until you switch it on). Every player's body rests at 98.6 °F, falls in the cold and rises in the heat by EZvac's feels-like, the sun and the shade included, and settles once they're comfortable. Stay out too long and it hurts: slowness, weakness, then damage, with an optional sickness system. See [Body temperature](#body-temperature).
+- **Switched from EZvac's Addons menu.** `/hvac addons` switches EZclimates on and off while the server runs, and each part on its own: seasonal looks, snow and ice, planned weather, and body temperature.
 - **No re-logging.** When the season turns or rain turns to snow, the chunks players already have are resent, nearest first, and the client redraws them in place.
 
 ## Requirements
@@ -31,8 +33,36 @@ Install the jar in `plugins/` and **restart** (not `/reload`): the seasonal biom
 | `/ezclimates weather event <snowstorm\|thunderstorm\|heatwave\|coldsnap> [hours]` | Starts one now (12 in-game hours by default) |
 | `/ezclimates weather replan` | Plans the weather afresh from now |
 | `/ezclimates here` | What EZclimates sees where you stand: what's falling, the air, the snow line, the water and its freezing point (`here <x> <z>` from the console) |
+| `/ezclimates body reload` | Reads `body.yml` again |
+| `/ezclimates body set <player> <°F>` | Sets a player's body temperature |
+| `/ezclimates body sick <player> <mild\|moderate\|severe>`, `cure <player>`, `roll <player>` | Makes a player ill, cures them, or rolls their chance of falling ill now |
 | `/ezclimates clear` | Melts every recorded block of snow and ice, in loaded chunks now and in others as they load, and places no more: the way to uninstall cleanly. Lasts across restarts |
 | `/ezclimates resume` | Back to normal after `clear` |
+
+`/bodytemp` (permission `liveexposure.use`, everyone by default) shows your own body temperature and any sickness.
+
+## Switching it and its parts
+
+EZvac's Addons menu (`/hvac addons`) lists EZclimates. The dye under it switches all of it; its icon opens its parts:
+
+| Part | Switched off |
+| --- | --- |
+| Seasonal looks | Players see the world's own biomes again (their chunks are resent as they are) |
+| Snow and ice | Nothing new is placed, Minecraft's own snow is let be, and what is there still melts |
+| Planned weather | The plan is dropped and Minecraft's weather runs itself |
+| Body temperature | Nobody's body changes. This one starts off |
+
+The choices are kept in EZvac's `config.yml` through restarts.
+
+## Body temperature
+
+This was the LiveExposure addon. It is off until you switch it on in `/hvac addons` (EZclimates, Body temperature), because by default it can kill (`lethal` in `body.yml`).
+
+- **Coming from LiveExposure:** remove its jar and leave its folder. On the next start EZclimates brings `plugins/LiveExposure/config.yml` over to `plugins/EZclimates/body.yml` and starts with body temperature on, and each player's body temperature and illness carry over as they join. While the LiveExposure jar is still installed, EZclimates leaves body temperature to it.
+- **The sun and the shade** come from EZvac's feels-like now (BETA 1.0 Pilot 4), so LiveExposure's own `shade` setting is gone.
+- **Kept as they were:** `/bodytemp`, the `liveexposure.use` and `liveexposure.bypass` permissions, and every other setting. `/liveexposure …` is `/ezclimates body …`.
+- **On EZvac's HUD** the section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
+- LiveExposure 0.2.0 stays available for Minecraft 1.21.x servers, which EZclimates doesn't run on.
 
 ## How it works
 
@@ -42,7 +72,7 @@ The server still uses the real biomes, so a player in a desert thunderstorm sees
 
 ## Settings
 
-See [`config.yml`](src/main/resources/config.yml): rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
+See [`body.yml`](src/main/resources/body.yml) for body temperature, and [`config.yml`](src/main/resources/config.yml) for the rest: rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
 
 ## Licence
 
