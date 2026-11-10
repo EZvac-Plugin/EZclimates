@@ -292,7 +292,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
                         + (snow.clearing() ? ". Clearing: nothing new is placed (/ezclimates resume)." : "."));
                 int[] grown = plants.counts();
-                sender.sendMessage("  Plants: " + recorded[2] + " flowers and mushrooms in loaded chunks (" + grown[2]
+                sender.sendMessage("  Plants: " + recorded[2] + " of its own in loaded chunks (" + grown[2]
                         + " came up, " + snow.plantsGone() + " went); crops held back " + grown[0] + " times and"
                         + " hurried " + grown[1] + " since start.");
             }

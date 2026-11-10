@@ -17,15 +17,18 @@ import java.util.function.Consumer;
  * @param humidBoost   how much faster growth is in warm air at 60% humidity or more
  * @param dryFactor    how much of it is left in air drier than 30%
  * @param flowers      flowers come up on open grass in spring
- * @param mushrooms    mushrooms come up in shade in autumn
+ * @param mushrooms    mushrooms come up under trees in autumn
+ * @param leafLitter   leaf litter comes up under broadleaf trees in autumn
+ * @param petals       pink petals come up under cherry trees in spring
  * @param maxPerChunk  the most flowers and mushrooms EZclimates keeps in one chunk
+ * @param maxCoverPerChunk the most leaf litter and petals it keeps in one chunk
  * @param rate         how fast they come up, 1 filling a chunk over some minutes
  */
 public record PlantSettings(boolean crops, double stopsBelowF, double fullFromF, double hotAboveF, double noneAboveF,
-                            double humidBoost, double dryFactor, boolean flowers, boolean mushrooms, int maxPerChunk,
-                            double rate) {
+                            double humidBoost, double dryFactor, boolean flowers, boolean mushrooms,
+                            boolean leafLitter, boolean petals, int maxPerChunk, int maxCoverPerChunk, double rate) {
     public static PlantSettings defaults() {
-        return new PlantSettings(true, 36.0, 60.0, 95.0, 115.0, 1.5, 0.75, true, true, 4, 1.0);
+        return new PlantSettings(true, 36.0, 60.0, 95.0, 115.0, 1.5, 0.75, true, true, true, true, 4, 24, 1.0);
     }
 
     public static PlantSettings load(ConfigurationSection config, Consumer<String> warn) {
@@ -47,7 +50,9 @@ public record PlantSettings(boolean crops, double stopsBelowF, double fullFromF,
                 range(config, "crops.humid-boost", d.humidBoost, 1.0, 3.0, warn),
                 range(config, "crops.dry-factor", d.dryFactor, 0.0, 1.0, warn),
                 config.getBoolean("flowers", d.flowers), config.getBoolean("mushrooms", d.mushrooms),
+                config.getBoolean("leaf-litter", d.leafLitter), config.getBoolean("petals", d.petals),
                 (int) range(config, "max-per-chunk", d.maxPerChunk, 0, 32, warn),
+                (int) range(config, "max-cover-per-chunk", d.maxCoverPerChunk, 0, 128, warn),
                 range(config, "rate", d.rate, 0.1, 20.0, warn));
     }
 

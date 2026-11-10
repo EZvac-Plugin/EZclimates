@@ -141,12 +141,18 @@ weather:
 # outside waits for spring. Bone meal works as ever; kelp, bamboo, cactus
 # and the Nether's plants are left alone.
 #
-# Flowers come up on open grass in spring (in air of 45 F or warmer) and
-# mushrooms under trees in autumn (and on podzol and mycelium), round
-# players, at most max-per-chunk of them
-# in a chunk; rate is how fast (1 fills a chunk over some minutes). Flowers
-# last through summer and die back in autumn, at once in winter or a hard
-# frost; mushrooms go when autumn is over. Each is recorded in its chunk
+# Flowers come up on open grass in spring (in air of 45 F or warmer), with
+# wildflowers among them in meadows, plains and birch woods, and pink petals
+# under cherry trees. In autumn leaf litter comes up under broadleaf trees
+# (oak, birch, dark oak, acacia, pale oak), and mushrooms under any tree and
+# on podzol and mycelium. All round players: at most max-per-chunk flowers
+# and mushrooms in a chunk, and max-cover-per-chunk of leaf litter and
+# petals, which lie thicker; rate is how fast (1 fills a chunk over some
+# minutes). Flowers last through summer and die back in autumn, at once in
+# winter or a hard frost; petals go when spring is over; leaf litter lies
+# through winter (under the snow) and is gone by spring; mushrooms go when
+# autumn is over. The world's own petals and leaf litter, and a player's,
+# are never touched. Each is recorded in its chunk
 # like snow, so only EZclimates' own are ever taken away: a flower a player
 # planted stays, and one a player picks is theirs. /hvac addons switches all
 # of this (EZclimates, Plants); /ezclimates here says how fast crops grow
@@ -162,7 +168,10 @@ plants:
     dry-factor: 0.75
   flowers: true
   mushrooms: true
+  leaf-litter: true
+  petals: true
   max-per-chunk: 4
+  max-cover-per-chunk: 24
   rate: 1.0
 
 # How much work each tick may do. Snow lines are worked out for the chunks

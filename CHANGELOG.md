@@ -16,7 +16,8 @@ The first release: seasons you can see, from EZvac's climate.
   from the plan, sure for today and tomorrow and less so further out.
 - Plants: crops, stems, cocoa, sugar cane and saplings grow by EZvac's air
   where they stand, so a heated greenhouse grows through winter; flowers
-  come up in spring and mushrooms under trees in autumn, recorded like snow
+  (with wildflowers) and pink petals under cherry trees come up in spring,
+  and leaf litter under broadleaf trees and mushrooms in autumn, recorded like snow
   so only EZclimates' own ever go.
 - Body temperature, as a part that is off until switched on: LiveExposure
   is part of EZclimates now. Its settings are in `body.yml`; a server that

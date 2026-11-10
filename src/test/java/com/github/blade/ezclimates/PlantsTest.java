@@ -54,5 +54,19 @@ class PlantsTest {
         assertEquals(2, read.maxPerChunk());
         assertFalse(read.flowers());
         assertEquals(2, warnings.size(), warnings::toString);
+        assertTrue(stock.leafLitter() && stock.petals(), "leaf litter and petals come with the stock settings");
+        assertEquals(24, stock.maxCoverPerChunk(), "ground cover lies thicker than flowers stand");
+    }
+
+    @Test
+    void onlyBroadleafTreesShedAndGroundCoverIsToldApart() {
+        assertTrue(Plants.shedsLeaves(org.bukkit.Material.OAK_LEAVES));
+        assertTrue(Plants.shedsLeaves(org.bukkit.Material.BIRCH_LEAVES));
+        assertFalse(Plants.shedsLeaves(org.bukkit.Material.SPRUCE_LEAVES), "evergreens keep theirs");
+        assertFalse(Plants.shedsLeaves(org.bukkit.Material.JUNGLE_LEAVES));
+        assertFalse(Plants.shedsLeaves(org.bukkit.Material.CHERRY_LEAVES), "cherries drop petals in spring instead");
+        assertTrue(Plants.cover(org.bukkit.Material.LEAF_LITTER) && Plants.cover(org.bukkit.Material.PINK_PETALS));
+        assertFalse(Plants.cover(org.bukkit.Material.POPPY) || Plants.cover(org.bukkit.Material.BROWN_MUSHROOM)
+                || Plants.cover(org.bukkit.Material.WILDFLOWERS));
     }
 }

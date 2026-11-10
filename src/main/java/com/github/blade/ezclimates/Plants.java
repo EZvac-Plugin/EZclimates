@@ -32,8 +32,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * a system keeps warm grows crops through winter while the field outside
  * waits for spring.
  *
- * <p>Flowers come up on open grass in spring and mushrooms in shade in
- * autumn, round players, and go again later in the year. Each is recorded
+ * <p>Flowers come up on open grass in spring, with petals under cherry
+ * trees; in autumn leaf litter and mushrooms come up under trees. All round
+ * players, and all go again later in the year. Each is recorded
  * in its chunk like snow and ice, and only recorded ones are ever taken
  * away, so a player's own planting is never touched. Main thread only.
  */
@@ -126,7 +127,7 @@ public final class Plants implements Listener {
 
     /** Every tick: a few tries for a new flower or mushroom in the chunks round players. */
     public void tick() {
-        if (!on || settings.maxPerChunk() <= 0 || (!settings.flowers() && !settings.mushrooms())) return;
+        if (!on || !(settings.flowers() || settings.mushrooms() || settings.leafLitter() || settings.petals())) return;
         int chunks = records.areaSize();
         if (chunks == 0) return;
         owed = Math.min(8.0, owed + chunks * settings.rate() / TICKS_PER_TRY);
@@ -141,34 +142,76 @@ public final class Plants implements Listener {
     private void sprout(Block ground, ThreadLocalRandom random) {
         World world = ground.getWorld();
         SeasonView.Season season = ezvac.season(world).map(SeasonView::season).orElse(null);
-        if (season == null) return;
-        boolean flower = season == SeasonView.Season.SPRING && settings.flowers();
-        boolean mushroom = season == SeasonView.Season.AUTUMN && settings.mushrooms();
-        if (!flower && !mushroom) return;
+        if (season != SeasonView.Season.SPRING && season != SeasonView.Season.AUTUMN) return;
         Block above = ground.getRelative(BlockFace.UP);
         if (!above.getType().isAir() || !above.getRelative(BlockFace.UP).getType().isAir()) return;
         Material soil = ground.getType();
-        if (flower ? soil != Material.GRASS_BLOCK : !mushroomSoil(soil)) return;
-        // Mushrooms come up under trees, or on podzol and mycelium anywhere: never out on open grass.
-        if (mushroom && soil != Material.PODZOL && soil != Material.MYCELIUM && !underLeaves(above)) return;
-        if (records.plantsIn(above.getChunk()) >= settings.maxPerChunk()) return;
+        Material canopy = canopyOver(above);
+        Material plant = season == SeasonView.Season.SPRING ? inSpring(above, soil, canopy, random)
+                : inAutumn(soil, canopy, random);
+        if (plant == null) return;
+        // Ground cover (leaf litter, petals) lies thicker than flowers and mushrooms stand.
+        boolean cover = cover(plant);
+        if (records.plantsIn(above.getChunk(), type -> cover(type) == cover)
+                >= (cover ? settings.maxCoverPerChunk() : settings.maxPerChunk())) return;
         double airF = ezvac.outdoorAt(above.getLocation().add(0.5, 0.5, 0.5)).airF();
-        if (airF < (flower ? FLOWERS_FROM_F : MUSHROOMS_FROM_F)) return;
-        Material plant = flower ? flowerFor(above, random)
-                : random.nextDouble() < 0.7 ? Material.BROWN_MUSHROOM : Material.RED_MUSHROOM;
-        BlockData data = plant.createBlockData();
-        // A flower stands where vanilla's could. A mushroom under a tree stands in more light than vanilla
-        // lets one be planted in, so it is set down as it is; it drops if something beside it changes.
-        if (flower && !above.canPlace(data)) return;
+        if (airF < (season == SeasonView.Season.SPRING ? FLOWERS_FROM_F : MUSHROOMS_FROM_F)) return;
+        BlockData data = dataFor(plant, random);
+        // Everything stands where vanilla's could, but a mushroom: under a tree it is in more light than
+        // vanilla lets one be planted in, so it is set down as it is, and drops if something beside it changes.
+        boolean mushroom = plant == Material.BROWN_MUSHROOM || plant == Material.RED_MUSHROOM;
+        if (!mushroom && !above.canPlace(data)) return;
         above.setBlockData(data, false);
         records.recordPlant(above);
         placed++;
     }
 
-    /** Whether a tree's leaves are over a spot: the nearest thing above it, within reach of a canopy. */
-    private static boolean underLeaves(Block spot) {
+    /** What comes up at a spot in spring: petals under a cherry tree, else flowers on grass; null for nothing. */
+    private Material inSpring(Block at, Material soil, Material canopy, ThreadLocalRandom random) {
+        if (soil != Material.GRASS_BLOCK) return null;
+        if (canopy == Material.CHERRY_LEAVES) return settings.petals() ? Material.PINK_PETALS : null;
+        if (!settings.flowers()) return null;
+        String biome = at.getBiome().getKey().getKey();
+        if (biome.contains("swamp")) return Material.BLUE_ORCHID;
+        // Wildflowers in meadows, plains and birch woods, among the single flowers.
+        if ((biome.contains("meadow") || biome.contains("plains") || biome.contains("birch")) && random.nextInt(3) == 0)
+            return Material.WILDFLOWERS;
+        if (biome.contains("forest") && random.nextInt(4) == 0) return Material.LILY_OF_THE_VALLEY;
+        return FLOWERS[random.nextInt(FLOWERS.length)];
+    }
+
+    /**
+     * What comes up at a spot in autumn: leaf litter and mushrooms under
+     * broadleaf trees, mushrooms alone on podzol and mycelium, and nothing
+     * out on open grass.
+     */
+    private Material inAutumn(Material soil, Material canopy, ThreadLocalRandom random) {
+        Material mushroom = random.nextDouble() < 0.7 ? Material.BROWN_MUSHROOM : Material.RED_MUSHROOM;
+        if (soil == Material.PODZOL || soil == Material.MYCELIUM) return settings.mushrooms() ? mushroom : null;
+        if (canopy == null || !mushroomSoil(soil)) return null;
+        boolean litter = settings.leafLitter() && shedsLeaves(canopy);
+        if (litter && (!settings.mushrooms() || random.nextInt(5) != 0)) return Material.LEAF_LITTER;
+        return settings.mushrooms() ? mushroom : null;
+    }
+
+    /** The leaves over a spot: the nearest thing above it, within reach of a canopy; null under open sky or a roof. */
+    private static Material canopyOver(Block spot) {
         Block top = spot.getWorld().getHighestBlockAt(spot.getX(), spot.getZ(), HeightMap.MOTION_BLOCKING);
-        return top.getY() > spot.getY() && top.getY() - spot.getY() <= 24 && Tag.LEAVES.isTagged(top.getType());
+        return top.getY() > spot.getY() && top.getY() - spot.getY() <= 24 && Tag.LEAVES.isTagged(top.getType())
+                ? top.getType() : null;
+    }
+
+    /** Trees that drop their leaves in autumn: the broadleaf ones, not spruce, jungle, mangrove, azalea or cherry. */
+    static boolean shedsLeaves(Material leaves) {
+        return switch (leaves) {
+            case OAK_LEAVES, BIRCH_LEAVES, DARK_OAK_LEAVES, ACACIA_LEAVES, PALE_OAK_LEAVES -> true;
+            default -> false;
+        };
+    }
+
+    /** Ground cover that lies flat, as against flowers and mushrooms that stand. */
+    static boolean cover(Material type) {
+        return type == Material.LEAF_LITTER || type == Material.PINK_PETALS;
     }
 
     private static boolean mushroomSoil(Material soil) {
@@ -178,34 +221,49 @@ public final class Plants implements Listener {
         };
     }
 
-    private static Material flowerFor(Block at, ThreadLocalRandom random) {
-        String biome = at.getBiome().getKey().getKey();
-        if (biome.contains("swamp")) return Material.BLUE_ORCHID;
-        if (biome.contains("forest") && random.nextInt(4) == 0) return Material.LILY_OF_THE_VALLEY;
-        return FLOWERS[random.nextInt(FLOWERS.length)];
+    /** A plant as it is set down: leaf litter, petals and wildflowers in a random amount, facing a random way. */
+    private static BlockData dataFor(Material plant, ThreadLocalRandom random) {
+        String amount = plant == Material.LEAF_LITTER ? "segment_amount"
+                : plant == Material.PINK_PETALS || plant == Material.WILDFLOWERS ? "flower_amount" : null;
+        if (amount != null) {
+            String facing = new String[] {"north", "east", "south", "west"}[random.nextInt(4)];
+            try {
+                return org.bukkit.Bukkit.createBlockData(plant.getKey() + "[" + amount + "=" + (1 + random.nextInt(4))
+                        + ",facing=" + facing + "]");
+            } catch (IllegalArgumentException differentOnThisVersion) {
+                // Its plain form, then.
+            }
+        }
+        return plant.createBlockData();
     }
 
     /** What EZclimates brings up itself, so a record whose block is anything else is forgotten, not removed. */
     static boolean ours(Material type) {
-        return Tag.SMALL_FLOWERS.isTagged(type) || type == Material.BROWN_MUSHROOM || type == Material.RED_MUSHROOM;
+        return Tag.SMALL_FLOWERS.isTagged(type) || type == Material.BROWN_MUSHROOM || type == Material.RED_MUSHROOM
+                || type == Material.WILDFLOWERS || type == Material.PINK_PETALS || type == Material.LEAF_LITTER;
     }
 
     /**
-     * Whether a recorded flower or mushroom goes at this look: flowers last
-     * through summer and die back in autumn (at once in winter, or in a
-     * hard frost), mushrooms go once autumn is over. Gradually, so a field
-     * thins rather than vanishing.
+     * Whether a recorded plant goes at this look, by what it is: flowers
+     * and wildflowers last through summer and die back in autumn (at once
+     * in winter, or in a hard frost); petals go once spring is over; leaf
+     * litter lies through autumn and winter and is gone by spring;
+     * mushrooms go once autumn is over. Gradually, so a field thins rather
+     * than vanishing.
      */
     private boolean goes(Block block) {
         SeasonView.Season season = ezvac.season(block.getWorld()).map(SeasonView::season).orElse(null);
         if (season == null || !on) return true;
         double roll = ThreadLocalRandom.current().nextDouble();
-        if (Tag.SMALL_FLOWERS.isTagged(block.getType())) {
-            if (season == SeasonView.Season.WINTER) return true;
-            if (ezvac.outdoorAt(block.getLocation().add(0.5, 0.5, 0.5)).airF() < FROST_F) return true;
-            return season == SeasonView.Season.AUTUMN && roll < 0.3;
-        }
-        return season != SeasonView.Season.AUTUMN && roll < 0.5;
+        Material type = block.getType();
+        if (type == Material.LEAF_LITTER)
+            return (season == SeasonView.Season.SPRING || season == SeasonView.Season.SUMMER) && roll < 0.5;
+        if (type == Material.PINK_PETALS) return season != SeasonView.Season.SPRING && roll < 0.5;
+        if (type == Material.BROWN_MUSHROOM || type == Material.RED_MUSHROOM)
+            return season != SeasonView.Season.AUTUMN && roll < 0.5;
+        if (season == SeasonView.Season.WINTER) return true;
+        if (ezvac.outdoorAt(block.getLocation().add(0.5, 0.5, 0.5)).airF() < FROST_F) return true;
+        return season == SeasonView.Season.AUTUMN && roll < 0.3;
     }
 
     /** What plants make of a spot, for /ezclimates here. */

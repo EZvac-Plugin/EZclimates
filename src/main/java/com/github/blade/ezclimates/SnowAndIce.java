@@ -95,12 +95,16 @@ public final class SnowAndIce implements Listener {
         save(plant.getChunk(), placed);
     }
 
-    /** The flowers and mushrooms recorded in a chunk. */
-    public int plantsIn(Chunk chunk) {
+    /** The recorded plants in a chunk that are of a kind. */
+    public int plantsIn(Chunk chunk, java.util.function.Predicate<Material> kind) {
         Placed placed = placedIn(chunk, false);
         if (placed == null) return 0;
         int count = 0;
-        for (int i = 0; i < placed.size(); i++) if (Placed.what(placed.get(i)) == Placed.What.PLANT) count++;
+        for (int i = 0; i < placed.size(); i++) {
+            int entry = placed.get(i);
+            if (Placed.what(entry) == Placed.What.PLANT
+                    && kind.test(chunk.getBlock(Placed.x(entry), Placed.y(entry), Placed.z(entry)).getType())) count++;
+        }
         return count;
     }
 
