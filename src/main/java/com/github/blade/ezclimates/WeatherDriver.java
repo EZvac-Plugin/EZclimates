@@ -239,9 +239,14 @@ public final class WeatherDriver implements WeatherPlan, Listener {
         }
         WeatherPlanner.Plan plan = plan(world);
         long now = world.getFullTime();
+        // The sky first, then the air: it can rain in a heat wave, and a cold snap can be dry.
+        WeatherPlanner.Front front = plan.frontAt(now);
+        WeatherPlanner.Swing swing = plan.swingAt(now);
+        String sky = front == null ? "dry" : front.snowstorm() ? "a snowstorm" : front.thunders(now) ? "a thunderstorm"
+                : "rain or snow";
         lines.add("Weather plan for " + world.getName() + " (sure for " + settings.exactDays() + " day(s); after that"
-                + " it can change). Now: " + plan.eventAt(now).map(WeatherEvent::displayName)
-                .orElse(plan.frontAt(now) != null ? "rain or snow" : "dry") + ".");
+                + " it can change). Now: " + sky + (swing == null ? "" : ", in a "
+                + swing.event().displayName().toLowerCase(Locale.ROOT)) + ".");
         List<Outlook> days = planner.outlook(plan, now, WeatherPlanner.HORIZON_DAYS - 1, seasons(world));
         String[] names = {"Today", "Tomorrow"};
         for (Outlook day : days)
