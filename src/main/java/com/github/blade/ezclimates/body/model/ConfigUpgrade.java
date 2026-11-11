@@ -39,7 +39,7 @@ public final class ConfigUpgrade {
         // The stock HUD lines gained {wet} (0.2.0); lines a server wrote itself are left alone.
         if (ExposureSettings.Hud.OLD_LINES.equals(config.getStringList("hud.lines"))) {
             config.set("hud.lines", ExposureSettings.Hud.LINES);
-            changed.add("hud.lines (the stock lines, now showing when you're wet)");
+            changed.add("hud.lines (the stock lines, now in EZvac's style with a status line)");
         }
         if (ExposureSettings.Hud.OLD_INLINE.equals(config.getString("hud.inline"))) {
             config.set("hud.inline", ExposureSettings.Hud.INLINE);
