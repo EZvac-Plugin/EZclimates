@@ -188,17 +188,33 @@ public final class LookUpdater implements Listener {
                     work.remove(world.getUID());
                 }
             }
+            long started = System.nanoTime();
             if (showing) budget = lines(world, look, budget);
+            worstLines = Math.max(worstLines, System.nanoTime() - started);
         }
+        long resending = System.nanoTime();
         for (World world : worlds) {
             Looks.WorldLook look = looks.worlds.get(world.getUID());
             if (look == null) continue;
             for (Player player : world.getPlayers()) resend(player, world, look);
         }
+        worstResend = Math.max(worstResend, System.nanoTime() - resending);
+    }
+
+    /** The slowest tick's snow lines and resends since last asked, in nanoseconds; asking starts them again. */
+    long worstLines, worstResend;
+
+    public long[] takeWorst() {
+        long[] worst = {worstLines, worstResend};
+        worstLines = worstResend = 0;
+        return worst;
     }
 
     /** When each world's lines are to be worked out once more after its weather turned. */
     private final Map<UUID, Long> recheck = new HashMap<>();
+    /** The most time a world's snow lines may take a tick (at least one chunk's are worked out). */
+    static final long LINES_NANOS = 2_000_000L;
+
     /** Two of EZvac's cycles. */
     static final long RECHECK_TICKS = 45L;
 
@@ -239,7 +255,12 @@ public final class LookUpdater implements Listener {
             return budget;
         }
         if (tick - work.scannedAt >= SCAN_TICKS) wanted(world, look, work);
-        while (budget > 0 && !work.wanted.isEmpty()) {
+        // Time as well as chunks: travelling, each line can cost many times more (EZvac blends new
+        // ground afresh), and a full budget of them would stall the tick.
+        long deadline = System.nanoTime() + LINES_NANOS;
+        boolean first = true;
+        while (budget > 0 && !work.wanted.isEmpty() && (first || System.nanoTime() < deadline)) {
+            first = false;
             long key = work.wanted.pollFirst()[0];
             // One line per 4x4 column of biome cells, so rain meets snow along EZvac's own edge.
             float[] lines = new float[Looks.CELLS * Looks.CELLS];
@@ -267,6 +288,8 @@ public final class LookUpdater implements Listener {
                 for (int dz = -radius; dz <= radius; dz++) {
                     long key = Looks.chunkKey(px + dx, pz + dz);
                     if (!near.add(key)) continue;
+                    // Not loaded yet: its ground isn't known, so its lines would only be worked out again.
+                    if (!world.isChunkLoaded(px + dx, pz + dz)) continue;
                     long at = work.at.get(key);
                     boolean never = at == Long.MIN_VALUE;
                     if (!never && tick - at < LINE_TICKS) continue;
@@ -346,6 +369,7 @@ public final class LookUpdater implements Listener {
     /** A loaded chunk's biomes as the player should see them, section by section. */
     static List<DataPalette> sections(Chunk chunk, Looks.WorldLook look, IdMap map, Stage stage, float[] lines) {
         ChunkSnapshot snapshot = chunk.getChunkSnapshot(false, true, false);
+        int bits = map.bits();
         Map<Biome, Integer> numbers = new HashMap<>();
         List<DataPalette> sections = new ArrayList<>(look.height / 16);
         for (int section = 0; section < look.height / 16; section++) {
@@ -359,7 +383,7 @@ public final class LookUpdater implements Listener {
                         int original = numbers.computeIfAbsent(biome, b -> map.id(b.getKey().toString()));
                         cells[i++] = original < 0 ? 0 : map.map(original, stage, Looks.kind(lines, x, z, baseY + y * 4 + 2));
                     }
-            sections.add(palette(cells, map.bits()));
+            sections.add(palette(cells, bits));
         }
         return sections;
     }

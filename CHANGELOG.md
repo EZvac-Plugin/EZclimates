@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Grass, podzol and mycelium no longer stay gray-topped with white sides
+  after EZclimates' snow melts off them: the melt tells the ground the snow
+  is gone, and settling snow marks it snowed on, as vanilla does. Ground
+  left that way by 0.1.0 heals by itself near players, or at once with
+  `/ezclimates adopt`.
+- No more lag spikes while travelling fast: working out rain and snow for
+  newly reached chunks could take 100 ms in one tick. It now takes at most
+  about 2 ms a tick, skips chunks that aren't loaded yet, and resends
+  chunks without the extra copying. `/ezclimates status` shows the slowest
+  tick of the last minute.
+
 ## 0.1.0
 
 The first release: seasons you can see, from EZvac's climate.

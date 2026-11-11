@@ -306,6 +306,8 @@ public final class SnowAndIce implements Listener {
             int z = (Looks.chunkZ(chunk[2]) << 4) + random.nextInt(16);
             if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
             Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
+            // Ground left looking snowed on after its snow went heals as it is looked at.
+            markSnowy(top);
             if (top.getType() == Material.WATER) {
                 if (settings.ice()) freeze(top);
             } else if (settings.snow()) {
@@ -349,6 +351,7 @@ public final class SnowAndIce implements Listener {
         int entry = Placed.pack(above.getX() & 15, above.getY(), above.getZ() & 15, Placed.What.SNOW);
         if (coveredTop != null) above.getRelative(BlockFace.UP).setType(Material.AIR, false);
         above.setBlockData(snow, false);
+        markSnowy(top);
         placed.add(entry);
         if (covered != null) placed.cover(entry, coveredTop == null ? covered : covered + "|" + coveredTop);
         save(above.getChunk(), placed);
@@ -595,8 +598,55 @@ public final class SnowAndIce implements Listener {
         return days < Math.min(holdDays, daysPerSeason) / 2.0;
     }
 
-    /** The last layer melts: what it buried grows back, or the air returns. */
+    /**
+     * The last layer melts: what it buried grows back, or the air returns,
+     * and the ground below stops looking snowed on.
+     */
     static void uncover(Block block, String covered) {
+        restore(block, covered);
+        markSnowy(block.getRelative(BlockFace.DOWN));
+    }
+
+    /**
+     * Grass, podzol and mycelium look snowed on (white sides, a gray top)
+     * exactly while snow lies on them, as vanilla keeps it. Blocks are set
+     * here without updates, so nothing else would tell them.
+     *
+     * @return true when the look was wrong and is fixed now
+     */
+    static boolean markSnowy(Block ground) {
+        if (!(ground.getBlockData() instanceof org.bukkit.block.data.Snowable look)) return false;
+        boolean snowy = snowOn(ground.getRelative(BlockFace.UP).getType());
+        if (look.isSnowy() == snowy) return false;
+        look.setSnowy(snowy);
+        ground.setBlockData(look, false);
+        return true;
+    }
+
+    /** What makes the ground below look snowed on (vanilla's snow tag). */
+    static boolean snowOn(Material above) {
+        return above == Material.SNOW || above == Material.SNOW_BLOCK || above == Material.POWDER_SNOW;
+    }
+
+    /**
+     * Grass left looking snowed on round a spot after its snow went (by
+     * EZclimates before 0.2.0, which never told it): set right again.
+     *
+     * @return how many blocks were fixed
+     */
+    public int fixGround(World world, int cx, int cz, int radius) {
+        int fixed = 0;
+        for (int x = cx - radius; x <= cx + radius; x++)
+            for (int z = cz - radius; z <= cz + radius; z++) {
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
+                Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
+                // The heightmap's top, or the ground under a snow layer or plant it skips.
+                if (markSnowy(top) || markSnowy(top.getRelative(BlockFace.DOWN))) fixed++;
+            }
+        return fixed;
+    }
+
+    private static void restore(Block block, String covered) {
         if (covered == null) {
             block.setType(Material.AIR, false);
             return;

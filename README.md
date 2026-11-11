@@ -39,7 +39,7 @@ Install the jar in `plugins/` and **restart** (not `/reload`): the seasonal biom
 | `/ezclimates body reload` | Reads `body.yml` again |
 | `/ezclimates body set <player> <°F>` | Sets a player's body temperature |
 | `/ezclimates body sick <player> <mild\|moderate\|severe>`, `cure <player>`, `roll <player>` | Makes a player ill, cures them, or rolls their chance of falling ill now |
-| `/ezclimates adopt [blocks]` | Takes on thin snow nobody recorded within that many blocks of you (64 by default), so it melts like EZclimates' own: for strays left by a server that was killed mid-snowfall. Only in biomes where Minecraft itself never snows |
+| `/ezclimates adopt [blocks]` | Takes on thin snow nobody recorded within that many blocks of you (64 by default), so it melts like EZclimates' own: for strays left by a server that was killed mid-snowfall. Only in biomes where Minecraft itself never snows. It also fixes grass still looking snowed on (gray top, white sides) after its snow melted |
 | `/ezclimates clear` | Melts every recorded block of snow and ice, in loaded chunks now and in others as they load, and places no more: the way to uninstall cleanly. Lasts across restarts |
 | `/ezclimates resume` | Back to normal after `clear` |
 

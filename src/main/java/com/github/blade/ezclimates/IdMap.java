@@ -13,20 +13,21 @@ public final class IdMap {
     /** Per original number: stage x (rain, snow, dry, own) to the number shown. */
     private final Map<Integer, int[]> copies;
     private final Map<String, Integer> byName;
+    /** Worked out once: asked for every section of every chunk sent. */
+    private final int bits;
 
     private IdMap(Map<Integer, int[]> copies, Map<String, Integer> byName) {
         this.copies = copies;
         this.byName = byName;
+        int highest = 0;
+        for (int id : byName.values()) highest = Math.max(highest, id);
+        this.bits = Math.max(1, 32 - Integer.numberOfLeadingZeros(highest));
     }
 
     public boolean isEmpty() { return copies.isEmpty(); }
 
     /** Bits a biome number takes when a section lists them directly: enough for the whole registry. */
-    public int bits() {
-        int highest = 0;
-        for (int id : byName.values()) highest = Math.max(highest, id);
-        return Math.max(1, 32 - Integer.numberOfLeadingZeros(highest));
-    }
+    public int bits() { return bits; }
 
     /** A biome's name by its number, or the number itself if the client has none by it. */
     public String name(int id) {

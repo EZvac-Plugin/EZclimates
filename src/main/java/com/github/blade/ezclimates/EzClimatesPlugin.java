@@ -135,9 +135,15 @@ public final class EzClimatesPlugin extends JavaPlugin {
             timing[0] += planned - start;
             timing[1] += looked - planned;
             timing[2] += done - looked;
+            worstTick = Math.max(worstTick, done - start);
             if (++timedTicks >= 1_200) {
-                lastTiming = new double[]{timing[0] / 1e6 / timedTicks, timing[1] / 1e6 / timedTicks, timing[2] / 1e6 / timedTicks};
+                lastTiming = new double[]{timing[0] / 1e6 / timedTicks, timing[1] / 1e6 / timedTicks, timing[2] / 1e6 / timedTicks,
+                        worstTick / 1e6, 0, 0};
+                long[] parts = updater.takeWorst();
+                lastTiming[4] = parts[0] / 1e6;
+                lastTiming[5] = parts[1] / 1e6;
                 java.util.Arrays.fill(timing, 0);
+                worstTick = 0;
                 timedTicks = 0;
             }
         }, 1L, 1L);
@@ -223,6 +229,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
     /** Time spent each tick on the weather, the looks and snow and ice, over the last minute. */
     private final long[] timing = new long[3];
     private int timedTicks;
+    private long worstTick;
     private double[] lastTiming;
 
     /** /ezclimates, for admins (ezclimates.admin). */
@@ -268,6 +275,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 sender.sendMessage(adopted == 0 ? "No unrecorded thin snow within " + radius + " blocks."
                         : "Took on " + adopted + " block(s) of unrecorded snow within " + radius + " blocks: they melt"
                         + " like EZclimates' own now, once the air is above 34 F.");
+                int fixed = snow.fixGround(player.getWorld(), player.getLocation().getBlockX(),
+                        player.getLocation().getBlockZ(), radius);
+                if (fixed > 0) sender.sendMessage("Fixed " + fixed + " grass block(s) still looking snowed on.");
             }
             case "body" -> body.admin(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
             case "status" -> {
@@ -285,8 +295,9 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 }
                 sender.sendMessage("  Chunks resent since start: " + updater.resentTotal() + ".");
                 if (lastTiming != null) sender.sendMessage(String.format(java.util.Locale.ROOT,
-                        "  Time per tick over the last minute: weather %.3f ms, looks %.3f ms, snow and ice %.3f ms.",
-                        lastTiming[0], lastTiming[1], lastTiming[2]));
+                        "  Time per tick over the last minute: weather %.3f ms, looks %.3f ms, snow and ice %.3f ms;"
+                        + " the slowest tick %.2f ms (snow lines at most %.2f, resends %.2f).", lastTiming[0], lastTiming[1],
+                        lastTiming[2], lastTiming[3], lastTiming[4], lastTiming[5]));
                 int[] recorded = snow.recorded();
                 sender.sendMessage("  Snow and ice in loaded chunks: " + recorded[0] + " snow, " + recorded[1]
                         + " ice; " + snow.placedTotal() + " placed and " + snow.meltedTotal() + " melted since start"
