@@ -248,6 +248,25 @@ public final class SnowAndIce implements Listener {
         else if (to == Material.ICE && event.getBlock().getType() == Material.WATER && settings.ice()) event.setCancelled(true);
     }
 
+    /**
+     * Its own snow melting by a torch or a lamp (vanilla's random tick):
+     * melted the way EZclimates melts it instead, so the grass and flowers
+     * it buried grow back and its record goes with it.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onFade(org.bukkit.event.block.BlockFadeEvent event) {
+        Block block = event.getBlock();
+        if (block.getType() != Material.SNOW) return;
+        Placed placed = placedIn(block.getChunk(), false);
+        int entry = Placed.pack(block.getX() & 15, block.getY(), block.getZ() & 15, Placed.What.SNOW);
+        if (placed == null || !placed.contains(entry)) return;
+        event.setCancelled(true);
+        uncover(block, placed.uncover(entry));
+        placed.remove(entry);
+        meltedTotal++;
+        save(block.getChunk(), placed);
+    }
+
     /** Every tick: a few columns round players for new snow and ice, and a few records to melt. */
     public void tick(Iterable<World> worlds) {
         if (++ticks % 20 == 1) {
@@ -324,6 +343,8 @@ public final class SnowAndIce implements Listener {
         if (fallingAt(world, top.getX(), top.getY() + 1, top.getZ()) != Precipitation.SNOW) return;
         Placed placed = placedIn(top.getChunk(), true);
         if (top.getType() == Material.SNOW) {
+            // Never deeper beside a torch or a lamp, which melts it (vanilla's rule).
+            if (lit(top)) return;
             // Deeper with longer snowfall, but only on its own snow.
             if (!placed.contains(Placed.pack(top.getX() & 15, top.getY(), top.getZ() & 15, Placed.What.SNOW))) return;
             Snow snow = (Snow) top.getBlockData();
@@ -335,6 +356,8 @@ public final class SnowAndIce implements Listener {
             return;
         }
         Block above = top.getRelative(BlockFace.UP);
+        // Snow never settles by a torch, a lamp or anything else this bright, as in vanilla: it would melt.
+        if (lit(above)) return;
         BlockData snow = Material.SNOW.createBlockData();
         // Grass and flowers are buried, and recorded so the melt brings them back.
         String covered = null, coveredTop = null;
@@ -358,9 +381,19 @@ public final class SnowAndIce implements Listener {
         placedTotal++;
     }
 
+    /** Block light at which vanilla's snow never settles (it melts above 11). */
+    static final int NO_SNOW_FROM_LIGHT = 10;
+
+    /** Whether light from torches, lamps and the like is too bright here for snow to lie, as vanilla has it. */
+    static boolean lit(Block block) {
+        return block.getLightFromBlocks() >= NO_SNOW_FROM_LIGHT;
+    }
+
     private void freeze(Block water) {
         if (!(water.getBlockData() instanceof Levelled level) || level.getLevel() != 0) return;
         if (!water.getRelative(BlockFace.UP).getType().isAir()) return;
+        // Nor ice by a light, as in vanilla.
+        if (lit(water)) return;
         Placed.What what;
         if (heatedPool(water)) return;
         if (waterF(water) <= freezesAtF(water)) {
@@ -481,7 +514,12 @@ public final class SnowAndIce implements Listener {
                 int entry = placed.get(i);
                 Block block = chunk.getBlock(Placed.x(entry), Placed.y(entry), Placed.z(entry));
                 if (Placed.what(entry) == Placed.What.SNOW) {
-                    if (block.getType() != Material.SNOW) { placed.remove(entry); changed = true; continue; }
+                    if (block.getType() != Material.SNOW) {
+                        placed.uncover(entry);
+                        placed.remove(entry);
+                        changed = true;
+                        continue;
+                    }
                     // Snow that can't lie where it is (on ice, or over ice that thawed) goes at once.
                     if (!block.canPlace(Material.SNOW.createBlockData())) {
                         uncover(block, placed.uncover(entry));

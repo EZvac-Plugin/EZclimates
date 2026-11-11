@@ -12,6 +12,9 @@
   about 2 ms a tick, skips chunks that aren't loaded yet, and resends
   chunks without the extra copying. `/ezclimates status` shows the slowest
   tick of the last minute.
+- Torches, lamps and other lights melt EZclimates' snow and ice as they
+  do vanilla's, and snow never settles (nor water ices) by a light, as in
+  vanilla. What the snow buried grows back when a light melts it.
 - Tells EZvac (API 1.11) where it shows EZvac's rain and snow, so EZvac's
   HUD, sensors and forecasts say the same as the sky.
 
