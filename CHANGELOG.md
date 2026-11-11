@@ -12,6 +12,8 @@
   about 2 ms a tick, skips chunks that aren't loaded yet, and resends
   chunks without the extra copying. `/ezclimates status` shows the slowest
   tick of the last minute.
+- Tells EZvac (API 1.11) where it shows EZvac's rain and snow, so EZvac's
+  HUD, sensors and forecasts say the same as the sky.
 
 ## 0.1.0
 

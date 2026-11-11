@@ -109,6 +109,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         plantsOn = switches.partOn(PLANTS);
         bodyOn = switches.partOn(BODY);
         apply();
+        showsWeather(ezvac);
         if (body.leftToLiveExposure())
             getLogger().info("The LiveExposure plugin is installed, so body temperature is left to it. It is part"
                     + " of EZclimates now: remove LiveExposure's jar to use EZclimates' own (its settings and"
@@ -202,6 +203,23 @@ public final class EzClimatesPlugin extends JavaPlugin {
         ezvac.setWeatherPlan(this, weatherNow ? weather : null);
         plants.setOn(active && plantsOn);
         body.setRunning(active && bodyOn);
+    }
+
+    /**
+     * Tells EZvac (API 1.11) that players see its rain and snow wherever the
+     * seasonal looks are on, so its HUD, sensors and forecasts word the
+     * weather by its air there, as EZclimates shows it. Looked up by name:
+     * an older EZvac hasn't the call, and then guesses the same itself.
+     */
+    private void showsWeather(EzvacApi ezvac) {
+        java.util.function.Predicate<org.bukkit.World> shown =
+                world -> active && looksOn && settings.rainAndSnow() && LookUpdater.seasonal(world);
+        try {
+            EzvacApi.class.getMethod("setShowsWeather", org.bukkit.plugin.Plugin.class,
+                    java.util.function.Predicate.class).invoke(ezvac, this, shown);
+        } catch (ReflectiveOperationException | RuntimeException older) {
+            // Before API 1.11: EZvac recognises EZclimates and its looks switch by itself.
+        }
     }
 
     /** What is switched off in EZvac's Addons menu, for /ezclimates status; empty when nothing is. */
