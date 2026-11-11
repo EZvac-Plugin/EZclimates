@@ -251,6 +251,9 @@ final class ExposureListener implements Listener {
         // Sweat: drops falling from around the head, more the hotter it gets.
         if (stage.hot() && plugin.getConfig().getBoolean("sweat.enabled", true)
                 && player.getLocation().getBlock().getType() != Material.WATER) sweat(player, stage.severity());
+        // Soaked through: water streaming off the whole body until it's only wet (EZclimates 0.2.0).
+        if (Surroundings.wetWord(state.wetness).equals("Soaked") && plugin.getConfig().getBoolean("sweat.enabled", true)
+                && player.getLocation().getBlock().getType() != Material.WATER) drip(player);
 
         // Heat exhaustion and worse make you hungry faster.
         if (stage.hot() && stage.severity() >= 2) player.setExhaustion(player.getExhaustion() + (float) (0.1 * seconds));
@@ -283,6 +286,19 @@ final class ExposureListener implements Listener {
     private static void sweat(Player player, int drops) {
         Location head = player.getEyeLocation().subtract(0, 0.15, 0);
         player.getWorld().spawnParticle(Particle.FALLING_WATER, head, drops, 0.22, 0.12, 0.22, 0.0);
+    }
+
+    /**
+     * A soaked body streaming water: drops falling from shoulders to knees,
+     * drops hanging off it before they fall, and splashes at the feet. Far
+     * heavier than sweat, so it reads as soaked at a glance.
+     */
+    private static void drip(Player player) {
+        Location body = player.getLocation().add(0, 1.0, 0);
+        World world = player.getWorld();
+        world.spawnParticle(Particle.FALLING_WATER, body, 14, 0.3, 0.5, 0.3, 0.0);
+        world.spawnParticle(Particle.DRIPPING_WATER, body.clone().add(0, 0.3, 0), 5, 0.28, 0.35, 0.28, 0.0);
+        world.spawnParticle(Particle.SPLASH, player.getLocation().add(0, 0.05, 0), 4, 0.3, 0.0, 0.3, 0.0);
     }
 
     private static void hurt(Player player, boolean cold, ExposureSettings.Damage damage) {

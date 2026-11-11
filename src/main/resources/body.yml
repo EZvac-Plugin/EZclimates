@@ -216,7 +216,8 @@ hud:
     hot: "#ff5c5c"
 
 # Sweat: drops falling from around an overheating player's head, more the
-# hotter they get. Purely visual.
+# hotter they get, and water streaming off a soaked player until they're
+# only wet (EZclimates 0.2.0). Purely visual.
 sweat:
   enabled: true
 
