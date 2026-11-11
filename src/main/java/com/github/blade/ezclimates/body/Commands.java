@@ -107,8 +107,24 @@ final class Commands {
         if (plugin.sicknessOn() && state.illness != null)
             player.sendMessage(Component.text("Sick: " + state.illness.severity().displayName() + " fever, about "
                     + days(state.illness.daysLeft()) + " left. Water helps.", NamedTextColor.YELLOW));
-        if (!plugin.affected(player))
+        if (!plugin.affected(player)) {
             player.sendMessage(Component.text("Heat and cold don't affect you here.", NamedTextColor.GRAY));
+            return true;
+        }
+        // What is warming or chilling it besides the air (EZclimates 0.2.0).
+        java.util.List<String> factors = new java.util.ArrayList<>();
+        String wet = com.github.blade.ezclimates.body.model.Surroundings.wetWord(state.wetness);
+        if (!wet.isEmpty()) factors.add(wet + ": the cold bites harder until you dry off");
+        if (state.fireF >= 1.0) factors.add("A fire nearby: " + plugin.degreesDelta(state.fireF) + " warmer");
+        if (state.armorF >= 1.0) factors.add("Metal armor in the sun: " + plugin.degreesDelta(state.armorF) + " warmer");
+        if (state.exertion >= 0.15) factors.add("Working hard: up to " + plugin.degreesDelta(
+                state.exertion * plugin.surroundings().exertion().mostF()) + " warmer");
+        long left = state.mealUntil - org.bukkit.Bukkit.getCurrentTick();
+        if (left > 0 && plugin.surroundings().food().enabled())
+            factors.add((state.mealF > 0 ? "Warmed by " : "Cooled by ") + state.mealName + ": "
+                    + plugin.degreesDelta(Math.abs(state.mealF)) + " for " + Math.max(1, Math.round(left / 1200.0))
+                    + " more minute(s)");
+        for (String factor : factors) player.sendMessage(Component.text("  " + factor, NamedTextColor.GRAY));
         return true;
     }
 

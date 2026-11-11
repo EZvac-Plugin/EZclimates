@@ -6,6 +6,7 @@ import com.github.blade.ezclimates.body.model.BodyModel;
 import com.github.blade.ezclimates.body.model.ExposureSettings;
 import com.github.blade.ezclimates.body.model.SicknessModel;
 import com.github.blade.ezclimates.body.model.Stage;
+import com.github.blade.ezclimates.body.model.Surroundings;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -43,6 +44,8 @@ final class ExposureListener implements Listener {
     /** Effects last a little longer than the gap between updates, so they fade out by themselves. */
     private static final int EFFECT_TICKS = 60;
     private static final int NAUSEA_TICKS = 80;
+    /** Darkness pulses slowly: long enough to keep pulsing between updates. */
+    private static final int DARKNESS_TICKS = 100;
 
     private final BodyTemperature plugin;
 
@@ -77,14 +80,20 @@ final class ExposureListener implements Listener {
         ClimateReading reading = event.getReading();
         double feelsF = reading.inWater() ? reading.temperatureF()
                 : reading.feelsLikeF();   // EZvac's feels-like counts the sun and the shade itself (BETA 1.0 Pilot 4)
+        BodyModel.Extras extras = extras(player, state, reading, seconds, now);
         BodyModel.Conditions conditions = new BodyModel.Conditions(feelsF, reading.inWater(),
                 coldResistanceF(player, settings), player.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE),
-                restF, heatMultiplier);
+                restF, heatMultiplier, extras);
         state.bodyF = BodyModel.step(state.bodyF, conditions, seconds, settings);
 
         state.daySeconds += seconds;
-        if (BodyModel.exposedToCold(feelsF, settings.comfort()) || state.bodyF < settings.thresholds().chilledF())
+        if (BodyModel.exposedToCold(BodyModel.surroundingsF(conditions, settings.comfort()), settings.comfort())
+                || state.bodyF < settings.thresholds().chilledF())
             state.coldSeconds += seconds;
+        // Asleep where it still feels cold, with everything worn and eaten counted: a cold night.
+        if (player.isSleeping() && BodyModel.effectiveF(conditions, settings.comfort()) < settings.comfort().lowF())
+            state.sleptCold = true;
+        breathe(player, state, reading, seconds);
 
         Stage stage = Stage.of(state.bodyF, settings.thresholds());
         if (stage.worseThan(state.stage)) {
@@ -94,6 +103,89 @@ final class ExposureListener implements Listener {
         state.stage = stage;
         apply(player, state, stage, illness, seconds, settings);
         actionBar(player, state, stage, illness);
+    }
+
+    /**
+     * What the body meets besides the air this step (EZclimates 0.2.0): the
+     * rain on it and how wet it is, fires near it, metal armor in the sun,
+     * how hard it is working, and a meal still warming or cooling it.
+     */
+    private BodyModel.Extras extras(Player player, PlayerState state, ClimateReading reading, double seconds, long now) {
+        Surroundings around = plugin.surroundings();
+        boolean inWater = reading.inWater();
+        Location feet = player.getLocation();
+        World world = player.getWorld();
+        // Open to the sky: nothing that stops rain above the head.
+        boolean open = !inWater && world.getHighestBlockYAt(feet.getBlockX(), feet.getBlockZ(), HeightMap.MOTION_BLOCKING)
+                <= feet.getBlockY();
+        double rain = Surroundings.rainOn(reading.weather(), open, around.wetness());
+        long time = world.getTime();
+        boolean inSun = open && rain == 0.0 && !world.hasStorm() && (time < 12_300L || time > 23_850L)
+                && world.getEnvironment() == World.Environment.NORMAL;
+
+        state.fireF = around.fires().enabled() ? fireWarmthF(player, around.fires()) : 0.0;
+        state.wetness = Surroundings.wetness(state.wetness, inWater, rain, reading.feelsLikeF(), state.fireF > 3.0,
+                inSun, seconds, around.wetness());
+        boolean working = player.isSprinting() || player.isSwimming() || now - state.minedAt < 60L;
+        state.exertion = Surroundings.exertion(state.exertion, working, seconds, around.exertion());
+        state.armorF = around.armor().enabled() && inSun ? metalPieces(player) * around.armor().sunFPerPiece() : 0.0;
+
+        double meal = around.food().enabled() && now < state.mealUntil ? state.mealF : 0.0;
+        double wet = inWater ? 0.0 : state.wetness;
+        Surroundings.Wetness wetting = around.wetness();
+        // Back from the cold faster by a fire or after a warm meal; from the heat in water or after a cool drink.
+        double rewarm = 1.0 + state.fireF * around.fires().rewarmPerF() + (meal > 0 ? 1.0 : 0.0);
+        double recool = (inWater ? plugin.settings().rates().waterFactor() : 1.0) + (meal < 0 ? 1.0 : 0.0);
+        return new BodyModel.Extras(state.exertion * around.exertion().mostF(), state.armorF,
+                wet * wetting.colderF(), wet * wetting.coolerF(), 1.0 + wet * wetting.coldRateBonus(),
+                Math.max(0.0, meal), Math.max(0.0, -meal), rewarm, recool, inWater ? 0.0 : state.fireF);
+    }
+
+    /** The warmth of campfires, fire, lava and magma round the body, nearest counting most. */
+    private static double fireWarmthF(Player player, Surroundings.Fires fires) {
+        Location at = player.getLocation();
+        World world = player.getWorld();
+        int radius = fires.radius(), bx = at.getBlockX(), by = at.getBlockY(), bz = at.getBlockZ();
+        double total = 0.0;
+        for (int dx = -radius; dx <= radius; dx++)
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dz = -radius; dz <= radius; dz++) {
+                    org.bukkit.block.Block block = world.getBlockAt(bx + dx, by + dy, bz + dz);
+                    Double warmth = fires.warmthF().get(block.getType().getKey().getKey());
+                    if (warmth == null) continue;
+                    // An unlit campfire gives nothing.
+                    if (block.getBlockData() instanceof org.bukkit.block.data.Lightable lit && !lit.isLit()) continue;
+                    total += Surroundings.fireWarmthF(warmth, Math.sqrt(dx * dx + dy * dy + dz * dz), radius);
+                    if (total >= fires.mostF()) return fires.mostF();
+                }
+        return total;
+    }
+
+    /** Metal armor pieces worn: iron, chainmail, gold, copper, diamond or netherite. */
+    private static int metalPieces(Player player) {
+        int pieces = 0;
+        for (ItemStack item : player.getInventory().getArmorContents()) {
+            if (item == null) continue;
+            String name = item.getType().name();
+            boolean armor = name.endsWith("_HELMET") || name.endsWith("_CHESTPLATE") || name.endsWith("_LEGGINGS")
+                    || name.endsWith("_BOOTS");
+            boolean metal = name.startsWith("IRON_") || name.startsWith("CHAINMAIL_") || name.startsWith("GOLDEN_")
+                    || name.startsWith("COPPER_") || name.startsWith("DIAMOND_") || name.startsWith("NETHERITE_");
+            if (armor && metal) pieces++;
+        }
+        return pieces;
+    }
+
+    /** A puff of breath in front of the face in cold air, every few seconds. */
+    private void breathe(Player player, PlayerState state, ClimateReading reading, double seconds) {
+        Surroundings.Breath breath = plugin.surroundings().breath();
+        if (!breath.enabled() || reading.inWater() || !(reading.temperatureF() <= breath.belowF())) return;
+        state.breathTimer -= seconds;
+        if (state.breathTimer > 0) return;
+        state.breathTimer = breath.everySeconds() * (0.8 + plugin.random().nextDouble() * 0.4);
+        Location eye = player.getEyeLocation();
+        Location mouth = eye.add(eye.getDirection().multiply(0.35)).subtract(0, 0.15, 0);
+        player.getWorld().spawnParticle(Particle.CLOUD, mouth, 2, 0.03, 0.02, 0.03, 0.004);
     }
 
     /** Leather pieces worn, as degrees of cold tolerance. */
@@ -159,6 +251,8 @@ final class ExposureListener implements Listener {
         }
 
         if (stage == Stage.FREEZING || stage == Stage.HEATSTROKE) {
+            // The world closing in: about to die of it (EZclimates 0.2.0).
+            if (plugin.surroundings().darkness()) effect(player, PotionEffectType.DARKNESS, 0, DARKNESS_TICKS);
             state.damageTimer += seconds;
             ExposureSettings.Damage damage = settings.damage();
             while (state.damageTimer >= damage.intervalSeconds()) {
@@ -194,6 +288,8 @@ final class ExposureListener implements Listener {
         NamedTextColor color = stage.cold() ? NamedTextColor.AQUA : stage.hot() ? NamedTextColor.GOLD : NamedTextColor.YELLOW;
         Component bar = Component.text("Body " + plugin.degrees(state.bodyF), color);
         if (stage != Stage.NORMAL) bar = bar.append(Component.text(" · " + stage.displayName(), color));
+        String wet = Surroundings.wetWord(state.wetness);
+        if (!wet.isEmpty()) bar = bar.append(Component.text(" · " + wet, NamedTextColor.BLUE));
         if (illness != null)
             bar = bar.append(Component.text(" · " + capitalised(illness.severity().displayName()) + " fever",
                     NamedTextColor.YELLOW));
@@ -235,13 +331,58 @@ final class ExposureListener implements Listener {
         state.bodyF = ExposureSettings.Thresholds.REST_F;
         state.stage = Stage.NORMAL;
         state.damageTimer = 0;
+        state.wetness = 0;
+        state.exertion = 0;
+        state.mealUntil = 0;
     }
 
-    /** A water bottle helps a sick player get better sooner. */
+    /**
+     * A water bottle helps a sick player get better sooner; warm food holds
+     * the cold off for a while, and cool food (a water bottle too) the heat.
+     */
     @EventHandler(ignoreCancelled = true)
     public void onDrink(PlayerItemConsumeEvent event) {
         ItemStack item = event.getItem();
-        if (item.getType() != Material.POTION || !(item.getItemMeta() instanceof PotionMeta meta)) return;
-        if (meta.getBasePotionType() == PotionType.WATER) plugin.sickness().drank(event.getPlayer());
+        String name = item.getType().getKey().getKey();
+        if (item.getType() == Material.POTION) {
+            if (!(item.getItemMeta() instanceof PotionMeta meta) || meta.getBasePotionType() != PotionType.WATER) return;
+            plugin.sickness().drank(event.getPlayer());
+            name = "water_bottle";
+        }
+        Surroundings.Food food = plugin.surroundings().food();
+        if (!food.enabled()) return;
+        Surroundings.Meal warm = food.warm().get(name), cool = food.cool().get(name);
+        if (warm == null && cool == null) return;
+        PlayerState state = plugin.state(event.getPlayer());
+        Surroundings.Meal meal = warm != null ? warm : cool;
+        state.mealF = warm != null ? warm.f() : -cool.f();
+        state.mealUntil = Bukkit.getCurrentTick() + (long) (meal.minutes() * 1200.0);
+        state.mealName = name.replace('_', ' ');
+    }
+
+    /** Mining counts as work, which warms the body. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onMine(org.bukkit.event.block.BlockBreakEvent event) {
+        plugin.state(event.getPlayer()).minedAt = Bukkit.getCurrentTick();
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBed(org.bukkit.event.player.PlayerBedEnterEvent event) {
+        plugin.state(event.getPlayer()).sleptCold = false;
+    }
+
+    /** A night spent cold: the body wakes chilled, and it counts toward catching a cold. */
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onWake(org.bukkit.event.player.PlayerBedLeaveEvent event) {
+        Player player = event.getPlayer();
+        PlayerState state = plugin.state(player);
+        Surroundings.Sleep sleep = plugin.surroundings().sleep();
+        boolean cold = state.sleptCold;
+        state.sleptCold = false;
+        if (!cold || !sleep.enabled() || !plugin.affected(player)) return;
+        state.bodyF = Math.min(state.bodyF, plugin.settings().thresholds().chilledF() - 0.3);
+        state.coldSeconds += sleep.coldMinutes() * 60.0;
+        player.sendMessage(Component.text("You slept in the cold and woke up chilled. A warmer room, a fire nearby"
+                + " or leather would have helped.", NamedTextColor.AQUA));
     }
 }

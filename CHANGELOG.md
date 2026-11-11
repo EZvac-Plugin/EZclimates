@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+- **Body temperature meets more than the air.** Rain and snow soak you in
+  the open and water at once, and being wet makes the cold colder (the HUD
+  shows Damp, Wet or Soaked); fires warm you near them; warm food holds the
+  cold off and cool food the heat; metal armor bakes in the sun; sprinting,
+  swimming and mining warm you; your breath shows in cold air; and a night
+  asleep in the cold wakes you chilled. Each has its section in `body.yml`,
+  added on upgrade, and `/bodytemp` lists what is warming or chilling you.
+- Fires warm you up to comfortable against the cold (beside a campfire
+  you're fine at 0 °F) and bring a chilled body back quickly: about two
+  minutes from freezing instead of ten. Water or a cool drink brings an
+  overheated one down faster. Darkness closes in at the deadly stages.
+- The HUD section is in EZvac's own style: `▍Body 98.6°F Normal`, then a
+  gauge like EZvac's feels-like one (EZvac BETA 1.0 Pilot 6) and status
+  tags such as Wet, Fire or Fever. Stock HUD lines are moved to the new
+  ones on upgrade; lines a server wrote itself stay.
+- Jumping the season by hand (`/hvac season set`) plans the weather afresh
+  for the new season, so a summer heat wave no longer carries into winter.
 - Grass, podzol and mycelium no longer stay gray-topped with white sides
   after EZclimates' snow melts off them: the melt tells the ground the snow
   is gone, and settling snow marks it snowed on, as vanilla does. Ground

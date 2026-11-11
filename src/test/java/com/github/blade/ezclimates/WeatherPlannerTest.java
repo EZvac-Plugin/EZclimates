@@ -184,4 +184,15 @@ class WeatherPlannerTest {
         assertEquals(30, bad.season(SeasonView.Season.WINTER).frontMaxHours());
         assertEquals(2, warnings.size(), String.valueOf(warnings));
     }
+
+    @Test
+    void aSeasonSetByHandIsAJumpButTheCalendarRunningOnIsNot() {
+        long day = WeatherPlanner.DAY, year = 120;
+        org.junit.jupiter.api.Assertions.assertFalse(WeatherDriver.jumped(10, 5 * day, 11, 6 * day, year), "the next day");
+        org.junit.jupiter.api.Assertions.assertFalse(WeatherDriver.jumped(10, 5 * day, 10, 9 * day, year), "paused");
+        org.junit.jupiter.api.Assertions.assertFalse(WeatherDriver.jumped(10, 5 * day, 13, 8 * day, year), "/time add three days");
+        org.junit.jupiter.api.Assertions.assertFalse(WeatherDriver.jumped(119, 5 * day, 0, 6 * day, year), "round the year");
+        org.junit.jupiter.api.Assertions.assertTrue(WeatherDriver.jumped(45, 5 * day, 105, 5 * day, year), "summer to winter");
+        org.junit.jupiter.api.Assertions.assertTrue(WeatherDriver.jumped(45, 5 * day, 48, 5 * day, year), "three days on, by hand");
+    }
 }

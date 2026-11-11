@@ -25,6 +25,21 @@ final class PlayerState {
     double daySeconds;
     double coldSeconds;
     double contactSeconds;
+    /** Kept in memory only: they wear off by themselves within minutes. */
+    double wetness;
+    double exertion;
+    /** A meal's warmth (above 0) or coolness (below 0) in degrees, until this server tick. */
+    double mealF;
+    long mealUntil;
+    String mealName = "";
+    double breathTimer;
+    /** Server tick of the last block mined; far in the past to start (never MIN_VALUE: now minus it overflows). */
+    long minedAt = -1_000_000L;
+    /** Asleep somewhere the body felt cold, tonight. */
+    boolean sleptCold;
+    /** The last step's warmth from fires, in degrees, for /bodytemp. */
+    double fireF;
+    double armorF;
 
     /** The persistent-data keys, made once per plugin. */
     record Keys(NamespacedKey body, NamespacedKey severity, NamespacedKey days, NamespacedKey water,

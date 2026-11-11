@@ -117,11 +117,48 @@ public final class WeatherDriver implements WeatherPlan, Listener {
         if (!settings.enabled() || !on || ++ticks % 20 != 0) return;
         for (World world : worlds) {
             if (!drives(world)) continue;
+            if (seasonJumped(world)) {
+                // An admin's /hvac season set: what was planned under the old season's odds (a summer heat wave
+                // in winter) is given up, and the weather planned afresh for the new one.
+                WeatherPlanner.Plan stale = plan(world);
+                stale.endSwingAt(world.getFullTime(), WeatherPlanner.HOUR);
+                replan(world);
+            }
             WeatherPlanner.Plan plan = plan(world);
             drive(world, plan);
             sky(world, plan);
         }
         if (dirty && ticks % 1_200 == 0) save();
+    }
+
+    /** Each world's place in EZvac's calendar when last looked at: [day of the year, full time]. */
+    private final Map<java.util.UUID, long[]> calendar = new HashMap<>();
+
+    /**
+     * Whether a world's season was moved by hand since the last look: its
+     * day of the year changed by more than the days that passed (the seasons
+     * running on, or /time add, never count).
+     */
+    boolean seasonJumped(World world) {
+        SeasonView view = ezvac.season(world).orElse(null);
+        if (view == null) {
+            calendar.remove(world.getUID());
+            return false;
+        }
+        long length = Math.max(1, view.daysPerSeason());
+        long day = view.season().ordinal() * length + view.dayOfSeason() - 1, now = world.getFullTime();
+        long[] before = calendar.put(world.getUID(), new long[]{day, now});
+        return before != null && jumped(before[0], before[1], day, now, length * 4);
+    }
+
+    /** Whether going from {@code dayBefore} to {@code day} of a year this long is more than the time between allows. */
+    static boolean jumped(long dayBefore, long timeBefore, long day, long time, long yearDays) {
+        // A paused calendar stays where it was while time passes: never a jump.
+        if (day == dayBefore) return false;
+        long passed = Math.floorDiv(time, WeatherPlanner.DAY) - Math.floorDiv(timeBefore, WeatherPlanner.DAY);
+        long expected = Math.floorMod(dayBefore + passed, yearDays);
+        long off = Math.abs(Math.floorMod(day, yearDays) - expected);
+        return Math.min(off, yearDays - off) > 1;
     }
 
     /** Sets the world's rain and thunder to the plan, with Minecraft's clocks counting to the next change. */

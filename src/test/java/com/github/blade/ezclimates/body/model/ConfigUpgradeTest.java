@@ -45,6 +45,27 @@ class ConfigUpgradeTest {
     }
 
     @Test
+    void anEzclimates010BodyYmlGainsTheSurroundingsAndTheWetHud() throws Exception {
+        YamlConfiguration old = read("/body.yml");
+        for (String section : List.of("wetness", "fires", "food", "armor", "exertion", "breath", "sleep"))
+            old.set(section, null);
+        old.set("hud.lines", ExposureSettings.Hud.OLD_LINES);
+        old.set("hud.inline", ExposureSettings.Hud.OLD_INLINE);
+        old.set("fires", null);
+        List<String> changed = ConfigUpgrade.apply(old, read("/body.yml"));
+        assertTrue(changed.containsAll(List.of("wetness", "fires", "food", "armor", "exertion", "breath", "sleep")),
+                changed::toString);
+        assertEquals(ExposureSettings.Hud.LINES, old.getStringList("hud.lines"));
+        assertEquals(ExposureSettings.Hud.INLINE, old.getString("hud.inline"));
+        assertEquals(Surroundings.defaults(), Surroundings.load(old, warning -> fail(warning)));
+        // Lines a server wrote itself stay.
+        YamlConfiguration own = read("/body.yml");
+        own.set("hud.lines", List.of("<red>{body}"));
+        ConfigUpgrade.apply(own, read("/body.yml"));
+        assertEquals(List.of("<red>{body}"), own.getStringList("hud.lines"));
+    }
+
+    @Test
     void ratesTheServerChoseAreKept() throws Exception {
         YamlConfiguration tuned = read("/body-config-0.1.0.yml");
         tuned.set("rates.cold-f-per-minute", 0.05);

@@ -72,20 +72,122 @@ cold-resistance:
   boots: 1.5
   f-per-point: 1.5
 
+# Darkness closes in at the deadly stages, freezing and heatstroke, while
+# the body is taking damage (EZclimates 0.2.0).
+darkness-when-dying: true
+
+# Getting wet (EZclimates 0.2.0). Rain soaks you out in the open, falling
+# snow slower and a thunderstorm faster; water soaks you at once. Wet, the
+# cold feels colder and takes your heat faster, and the heat a little
+# milder. You dry off out of the rain, faster the warmer it is, by a fire
+# and in the sun.
+wetness:
+  enabled: true
+  soaked-after-minutes: 3.0   # of rain in the open, from dry
+  snow-share: 0.4             # how much of rain's soaking falling snow does
+  dry-minutes: 8.0            # from soaked to dry, out of the rain, at 60 F
+  colder-by-f: 12.0           # soaked, the cold feels this much colder
+  cold-rate-bonus: 1.0        # and takes heat this much faster (1.0: twice as fast)
+  milder-heat-by-f: 4.0       # soaked, the heat feels this much milder
+
+# Fires warm you near them (EZclimates 0.2.0), even outdoors in a blizzard:
+# each kind's warmth right beside it, fading to nothing at the radius.
+# Against the cold a fire warms the air you feel fully, up to comfortable
+# (68 F with the stock comfort band): right beside a campfire you're
+# comfortable at 0 F, and two blocks off it's mild. Past comfortable, and in
+# the heat, only a quarter of its warmth counts, so a fire in the desert is
+# a nuisance rather than deadly. Unlit campfires give nothing.
+fires:
+  enabled: true
+  radius: 4
+  warmth-f:
+    campfire: 60
+    soul_campfire: 45
+    fire: 45
+    soul_fire: 30
+    lava: 70
+    magma_block: 15
+  most-f: 80                  # the most all fires together can add
+  # A chilled body warms back up faster by a fire: this much faster per
+  # degree of the fire's warmth (0.07: right beside a campfire, about 5
+  # times, so from freezing back to normal in about two minutes).
+  rewarm-per-f: 0.07
+
+# Food (EZclimates 0.2.0): warm food holds the cold off for a while, like
+# leather, and cool food the heat. Each is [degrees F, minutes].
+# water_bottle is a water bottle.
+food:
+  enabled: true
+  warm:
+    mushroom_stew: [12, 5]
+    rabbit_stew: [15, 6]
+    beetroot_soup: [12, 5]
+    suspicious_stew: [12, 5]
+    baked_potato: [6, 2]
+    cooked_beef: [5, 2]
+    cooked_porkchop: [5, 2]
+    cooked_chicken: [5, 2]
+    cooked_mutton: [5, 2]
+    cooked_rabbit: [5, 2]
+    cooked_cod: [4, 2]
+    cooked_salmon: [4, 2]
+    pumpkin_pie: [4, 2]
+  cool:
+    melon_slice: [6, 3]
+    sweet_berries: [3, 2]
+    glow_berries: [3, 2]
+    water_bottle: [6, 3]
+
+# Metal armor in direct sun (EZclimates 0.2.0): each iron, chainmail, gold,
+# copper, diamond or netherite piece worn adds this much, only toward the
+# heat. Leather and no armor stay cool.
+armor:
+  enabled: true
+  sun-f-per-piece: 2.5
+
+# Working hard warms you (EZclimates 0.2.0): sprinting, swimming and mining,
+# up to most-f, built up over build-up-seconds and gone cool-down-seconds
+# after you stop. A help in the cold, a danger in a heat wave.
+exertion:
+  enabled: true
+  most-f: 8.0
+  build-up-seconds: 30.0
+  cool-down-seconds: 45.0
+
+# Breath you can see in cold air (EZclimates 0.2.0): a small puff in front
+# of the face, about every few seconds, below this air temperature.
+breath:
+  enabled: true
+  below-f: 40.0
+  every-seconds: 3.0
+
+# Sleeping cold (EZclimates 0.2.0): a night asleep where you still feel
+# cold, with everything worn and eaten counted, wakes you chilled and
+# counts as this many minutes out in the cold toward catching a cold.
+sleep:
+  enabled: true
+  counts-as-cold-minutes: 20
+
 # The body temperature on EZvac's climate HUD (/hvac hud), under the season
 # line where EZvac's sidebar has its {addons} line. Needs EZvac ALPHA 2.1 or
 # newer. On a server whose HUD is the action bar or the boss bar, put
 # {section:ezclimates:body} into EZvac's hud format to show it there.
 hud:
   enabled: true
-  # MiniMessage. {body} the body temperature, {meter} a bar like EZvac's
-  # feels-like bar, {stage} the stage in its colour, {fever} the fever text
-  # while ill. At most 4 lines.
+  # MiniMessage, laid out like EZvac's own sections. {body} the body
+  # temperature, {stage} the stage in its colour, {meter} a gauge drawn like
+  # EZvac's feels-like one (coloured cold to hot, the marker at the body's
+  # temperature; EZvac BETA 1.0 Pilot 6, a plain bar before), {status} what
+  # else is happening, two at most (Fever, Wet, Fire, Fed, Cooled, Armor, Work),
+  # {fever} the fever text while ill, {wet} "· Damp", "· Wet" or "· Soaked".
+  # A line holding only {status} is left out while there is nothing to say.
+  # At most 4 lines, but EZvac's sidebar has room for two besides its own
+  # (it holds 15); a section that doesn't fit isn't shown.
   lines:
-    - "<gray>Body: <white>{body}{fever}"
-    - "{meter} {stage}"
+    - "<aqua>▍<white>Body <white>{body} {stage}"
+    - " {meter} {status}"
   # On one line, for action-bar and boss-bar HUDs.
-  inline: "<gray>Body <white>{body}</white> {stage}"
+  inline: "<gray>Body <white>{body}</white> {stage} {status}"
   fever: " <gray>(fever)"
   # The meter is empty at cold-f and full at hot-f, so 98.6 F sits mid-way.
   meter:

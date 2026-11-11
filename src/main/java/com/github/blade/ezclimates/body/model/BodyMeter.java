@@ -11,6 +11,12 @@ public final class BodyMeter {
         return Math.max(0.0, Math.min(1.0, value));
     }
 
+    /** The colour at a point along the meter (0 cold end .. 1 hot end): the stage a body that warm is in. */
+    public static String colorAlong(double fraction, ExposureSettings.Thresholds thresholds, ExposureSettings.Hud hud) {
+        double bodyF = hud.meterColdF() + (hud.meterHotF() - hud.meterColdF()) * fraction;
+        return color(Stage.of(bodyF, thresholds), hud);
+    }
+
     /** The stage's colour: normal, chilled, colder, overheating, or hotter. */
     public static String color(Stage stage, ExposureSettings.Hud hud) {
         return switch (stage) {

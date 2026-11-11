@@ -48,6 +48,8 @@ public final class BodyTemperature {
     private final File file;
     private YamlConfiguration config = new YamlConfiguration();
     private ExposureSettings settings = ExposureSettings.defaults();
+    private com.github.blade.ezclimates.body.model.Surroundings surroundings =
+            com.github.blade.ezclimates.body.model.Surroundings.defaults();
     private PlayerState.Keys keys;
     private final Map<UUID, PlayerState> states = new HashMap<>();
     private final Random random = new Random();
@@ -131,6 +133,7 @@ public final class BodyTemperature {
         }
         config = read;
         settings = ExposureSettings.load(config, plugin.getLogger()::warning);
+        surroundings = com.github.blade.ezclimates.body.model.Surroundings.load(config, plugin.getLogger()::warning);
     }
 
     /** Whether it runs on a server that never switched it in EZvac's Addons menu (body.yml, on-by-default). */
@@ -248,12 +251,20 @@ public final class BodyTemperature {
         return String.format(Locale.US, "%.1f °%s", units.fromFahrenheit(fahrenheit), units.name());
     }
 
+    /** A difference of degrees: {@code 12 °F}, or {@code 6.7 °C} when EZvac shows Celsius. */
+    String degreesDelta(double fahrenheit) {
+        TemperatureUnit units = ezvac.units();
+        double value = units.name().equals("C") ? fahrenheit * 5.0 / 9.0 : fahrenheit;
+        return String.format(Locale.US, units.name().equals("C") ? "%.1f °C" : "%.0f °F", value);
+    }
+
     JavaPlugin plugin() { return plugin; }
     Server getServer() { return plugin.getServer(); }
     Logger getLogger() { return plugin.getLogger(); }
     YamlConfiguration getConfig() { return config; }
     EzvacApi ezvac() { return ezvac; }
     ExposureSettings settings() { return settings; }
+    com.github.blade.ezclimates.body.model.Surroundings surroundings() { return surroundings; }
     Random random() { return random; }
     SicknessService sickness() { return sickness; }
 }

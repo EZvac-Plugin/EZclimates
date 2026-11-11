@@ -36,6 +36,15 @@ public final class ConfigUpgrade {
             config.set("rates.heat-f-per-minute", bundled.getDouble("rates.heat-f-per-minute"));
             changed.add("rates (the stock rates, now twice as fast)");
         }
+        // The stock HUD lines gained {wet} (0.2.0); lines a server wrote itself are left alone.
+        if (ExposureSettings.Hud.OLD_LINES.equals(config.getStringList("hud.lines"))) {
+            config.set("hud.lines", ExposureSettings.Hud.LINES);
+            changed.add("hud.lines (the stock lines, now showing when you're wet)");
+        }
+        if (ExposureSettings.Hud.OLD_INLINE.equals(config.getString("hud.inline"))) {
+            config.set("hud.inline", ExposureSettings.Hud.INLINE);
+            changed.add("hud.inline (the same)");
+        }
         return changed;
     }
 }

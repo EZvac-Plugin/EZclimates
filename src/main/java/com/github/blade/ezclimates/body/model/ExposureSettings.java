@@ -201,8 +201,13 @@ public record ExposureSettings(Comfort comfort, Rates rates, Balance balance, Th
     public record Hud(boolean enabled, List<String> lines, String inline, String feverText,
                       double meterColdF, double meterHotF, String normalColor, String chilledColor,
                       String coldColor, String warmColor, String hotColor) {
-        public static final List<String> LINES = List.of("<gray>Body: <white>{body}{fever}", "{meter} {stage}");
-        public static final String INLINE = "<gray>Body <white>{body}</white> {stage}";
+        /** Two lines: EZvac's sidebar leaves addons two of its fifteen. */
+        public static final List<String> LINES = List.of("<aqua>▍<white>Body <white>{body} {stage}",
+                " {meter} {status}");
+        public static final String INLINE = "<gray>Body <white>{body}</white> {stage} {status}";
+        /** 0.1.0's stock lines, which an upgrade moves to the ones with {wet}. */
+        public static final List<String> OLD_LINES = List.of("<gray>Body: <white>{body}{fever}", "{meter} {stage}");
+        public static final String OLD_INLINE = "<gray>Body <white>{body}</white> {stage}";
 
         public Hud {
             lines = List.copyOf(lines);

@@ -63,10 +63,22 @@ The choices are kept in EZvac's `config.yml` through restarts.
 
 This was the LiveExposure addon. It is off until you switch it on in `/hvac addons` (EZclimates, Body temperature), because by default it can kill (`lethal` in `body.yml`).
 
+Besides the air, the body meets (0.2.0; each can be switched off in `body.yml`):
+- **Getting wet:** rain soaks you in the open over a few minutes (snow slower, a thunderstorm faster), and water soaks you at once. Wet, the cold feels up to 12 °F colder and takes your heat twice as fast. You dry off out of the rain, faster in the warmth, by a fire and in the sun. The HUD shows Damp, Wet or Soaked.
+- **Fires:** campfires, fire, lava and magma warm you within 4 blocks, most right beside them: against the cold up to comfortable, so beside a campfire you're comfortable even at 0 °F, and they bring a chilled body back quickly (about two minutes from freezing beside a campfire). In the heat only a quarter of their warmth counts, which still makes it worse. Water and a cool drink likewise bring an overheated body down faster.
+- **Darkness** closes in at the deadly stages, freezing and heatstroke.
+- **Food:** stews and soups, cooked meat and fish, baked potatoes and pumpkin pie hold the cold off for a few minutes, as leather does; melon, berries and water bottles hold off the heat.
+- **Metal armor in the sun:** each iron, chainmail, gold, copper, diamond or netherite piece adds 2.5 °F of heat in direct sun. Leather and no armor stay cool.
+- **Working hard:** sprinting, swimming and mining warm you by up to 8 °F, which helps in the cold and hurts in a heat wave.
+- **Breath:** a puff shows in front of your face in air below 40 °F.
+- **Sleeping cold:** a night asleep where you still feel cold (with everything you wear and ate counted) wakes you chilled and makes a cold likelier.
+
+`/bodytemp` lists what is warming or chilling you right now.
+
 - **Coming from LiveExposure:** remove its jar and leave its folder. On the next start EZclimates brings `plugins/LiveExposure/config.yml` over to `plugins/EZclimates/body.yml` and starts with body temperature on, and each player's body temperature and illness carry over as they join. While the LiveExposure jar is still installed, EZclimates leaves body temperature to it.
 - **The sun and the shade** come from EZvac's feels-like now (BETA 1.0 Pilot 4), so LiveExposure's own `shade` setting is gone.
 - **Kept as they were:** `/bodytemp`, the `liveexposure.use` and `liveexposure.bypass` permissions, and every other setting. `/liveexposure …` is `/ezclimates body …`.
-- **On EZvac's HUD** the section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
+- **On EZvac's HUD** (0.2.0) the section is two lines in EZvac's own style: `▍Body 98.6°F Normal`, then a gauge drawn like EZvac's feels-like one (coloured cold to hot, the marker at your temperature; EZvac BETA 1.0 Pilot 6 or newer, a plain bar before) and up to two status tags: Fever, Wet, Fire, Fed, Cooled, Armor, Work. EZvac's sidebar leaves addons two of its 15 lines. The section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
 - LiveExposure 0.2.0 stays available for Minecraft 1.21.x servers, which EZclimates doesn't run on.
 
 ## How it works
