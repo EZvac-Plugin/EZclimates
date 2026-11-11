@@ -47,7 +47,7 @@ class ConfigUpgradeTest {
     @Test
     void anEzclimates010BodyYmlGainsTheSurroundingsAndTheWetHud() throws Exception {
         YamlConfiguration old = read("/body.yml");
-        for (String section : List.of("wetness", "fires", "food", "armor", "exertion", "breath", "sleep"))
+        for (String section : List.of("wetness", "fires", "food", "armor", "exertion", "breath", "sleep", "metabolism"))
             old.set(section, null);
         old.set("hud.lines", ExposureSettings.Hud.OLD_LINES);
         old.set("hud.inline", ExposureSettings.Hud.OLD_INLINE);

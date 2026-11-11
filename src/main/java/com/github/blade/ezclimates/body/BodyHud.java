@@ -55,6 +55,11 @@ final class BodyHud implements HudSection {
                 .map(line -> MINI.deserialize(fill(line, context, state, hud))).toList();
     }
 
+    /** A colour by level: {@code low} below {@code mid}, {@code middle} below {@code high}, then {@code top}. */
+    static String shade(double value, double mid, double high, String low, String middle, String top) {
+        return value >= high ? top : value >= mid ? middle : low;
+    }
+
     /** True for a line of nothing but tags and spaces. */
     private static boolean blank(String line) {
         return MINI.stripTags(line).isBlank();
@@ -67,16 +72,33 @@ final class BodyHud implements HudSection {
      */
     String status(PlayerState state) {
         java.util.List<String> tags = new java.util.ArrayList<>();
-        if (state.illness != null && plugin.sicknessOn()) tags.add("<#ffd966>Fever");
-        String wet = com.github.blade.ezclimates.body.model.Surroundings.wetWord(state.wetness);
-        if (!wet.isEmpty()) tags.add("<#6aa8ff>☂ " + wet);
-        if (state.fireF >= 1.0) tags.add("<#ff9d4d>♨ Fire");
-        if (state.mealUntil > org.bukkit.Bukkit.getCurrentTick() && plugin.surroundings().food().enabled())
-            tags.add(state.mealF > 0 ? "<#ffb347>☕ Fed" : "<#8fd3ff>❄ Cooled");
-        if (state.armorF >= 1.0) tags.add("<#ffd27a>☀ Armor");
-        if (state.exertion >= 0.15) tags.add("<#cfcfcf>⚒ Work");
-        // Two at most, short, so the sidebar keeps its width.
-        return String.join(" <dark_gray>·</dark_gray> ", tags.subList(0, Math.min(2, tags.size())));
+        // Each icon deepens in colour with its level.
+        if (state.illness != null && plugin.sicknessOn())
+            tags.add("<" + switch (state.illness.severity()) {
+                case MILD -> "#ffd966";
+                case MODERATE -> "#ffa94d";
+                case SEVERE -> "#ff5c5c";
+            } + ">✚");
+        if (state.wetness >= 0.05) tags.add("<" + shade(state.wetness, 0.35, 0.75, "#a8d4ff", "#6aa8ff", "#3d7bff")
+                + ">☂" + Math.round(state.wetness * 100) + "%");
+        if (state.fireF >= 1.0) tags.add("<" + shade(state.fireF, 20, 45, "#ffcc80", "#ff9d4d", "#ff6a2b")
+                + ">♨+" + Math.round(plugin.degreesAmount(state.fireF)) + "°");
+        long mealLeft = state.mealUntil - org.bukkit.Bukkit.getCurrentTick();
+        if (mealLeft > 0 && plugin.surroundings().food().enabled()) {
+            boolean fading = mealLeft < 1200;
+            String color = state.mealF > 0 ? (fading ? "#ffd9a0" : "#ffb347") : (fading ? "#cdeeff" : "#8fd3ff");
+            tags.add("<" + color + ">" + (state.mealF > 0 ? "☕" : "❄") + Math.max(1, Math.round(mealLeft / 1200.0)) + "m");
+        }
+        if (state.hungerFactor >= 1.05)
+            tags.add("<" + (state.hungry ? "#ff5c5c" : shade(state.hungerFactor, 1.3, 1.6, "#f2d16b", "#ffa94d", "#ff5c5c"))
+                    + ">⚡" + String.format(java.util.Locale.ROOT, "%.1f", state.hungerFactor) + "×");
+        else if (state.hungry) tags.add("<#ff5c5c>⚡");
+        if (state.armorF >= 1.0) tags.add("<" + shade(state.armorF, 5.1, 9.9, "#ffe08a", "#ffb84d", "#ff8a3d")
+                + ">☀+" + Math.round(plugin.degreesAmount(state.armorF)) + "°");
+        if (state.exertion >= 0.15) tags.add("<" + shade(state.exertion, 0.5, 0.85, "#cfcfcf", "#ffd27a", "#ffa94d")
+                + ">⚒+" + Math.round(plugin.degreesAmount(state.exertion * plugin.surroundings().exertion().mostF())) + "°");
+        // Icons and numbers, three at most, so the sidebar keeps its width.
+        return String.join(" ", tags.subList(0, Math.min(3, tags.size())));
     }
 
     @Override

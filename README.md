@@ -71,6 +71,7 @@ Besides the air, the body meets (0.2.0; each can be switched off in `body.yml`):
 - **Metal armor in the sun:** each iron, chainmail, gold, copper, diamond or netherite piece adds 2.5 °F of heat in direct sun. Leather and no armor stay cool.
 - **Working hard:** sprinting, swimming and mining warm you by up to 8 °F, which helps in the cold and hurts in a heat wave.
 - **Breath:** a puff shows in front of your face in air below 40 °F.
+- **Metabolism:** keeping warm burns food, so in the cold you get hungry up to 1.75 times as fast, and with 3 drumsticks or fewer the cold takes your heat 1.5 times as fast. Eat before a winter trip.
 - **Sleeping cold:** a night asleep where you still feel cold (with everything you wear and ate counted) wakes you chilled and makes a cold likelier.
 
 `/bodytemp` lists what is warming or chilling you right now.
@@ -78,7 +79,7 @@ Besides the air, the body meets (0.2.0; each can be switched off in `body.yml`):
 - **Coming from LiveExposure:** remove its jar and leave its folder. On the next start EZclimates brings `plugins/LiveExposure/config.yml` over to `plugins/EZclimates/body.yml` and starts with body temperature on, and each player's body temperature and illness carry over as they join. While the LiveExposure jar is still installed, EZclimates leaves body temperature to it.
 - **The sun and the shade** come from EZvac's feels-like now (BETA 1.0 Pilot 4), so LiveExposure's own `shade` setting is gone.
 - **Kept as they were:** `/bodytemp`, the `liveexposure.use` and `liveexposure.bypass` permissions, and every other setting. `/liveexposure …` is `/ezclimates body …`.
-- **On EZvac's HUD** (0.2.0) the section is two lines in EZvac's own style: `▍Body 98.6°F Normal`, then a gauge drawn like EZvac's feels-like one (coloured cold to hot, the marker at your temperature; EZvac BETA 1.0 Pilot 6 or newer, a plain bar before) and up to two status tags: Fever, Wet, Fire, Fed, Cooled, Armor, Work. EZvac's sidebar leaves addons two of its 15 lines. The section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
+- **On EZvac's HUD** (0.2.0) the section is two lines in EZvac's own style: `▍Body 98.6°F Normal`, then a gauge drawn like EZvac's feels-like one (coloured cold to hot, the marker at your temperature; EZvac BETA 1.0 Pilot 6 or newer, a plain bar before) and up to three icons: ✚ fever, ☂45% wet, ♨+60° by a fire, ☕3m a warm meal (❄ a cool one), ⚡1.4× hungry from the cold, ☀+10° hot armor, ⚒+5° working. EZvac's sidebar leaves addons two of its 15 lines. The section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
 - LiveExposure 0.2.0 stays available for Minecraft 1.21.x servers, which EZclimates doesn't run on.
 
 ## How it works

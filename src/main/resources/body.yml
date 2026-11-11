@@ -161,6 +161,18 @@ breath:
   below-f: 40.0
   every-seconds: 3.0
 
+# Metabolism (EZclimates 0.2.0): keeping warm burns food, so in the cold
+# hunger goes faster, up to 1 + cold-hunger-most times as fast at
+# cold-full-at-f degrees below comfortable (after leather, fires and meals),
+# and a hungry body (food at or below hungry-at-food, of 20) has nothing to
+# burn, so the cold takes its heat faster.
+metabolism:
+  enabled: true
+  cold-hunger-most: 0.75
+  cold-full-at-f: 30.0
+  hungry-at-food: 6
+  hungry-cold-rate-bonus: 0.5
+
 # Sleeping cold (EZclimates 0.2.0): a night asleep where you still feel
 # cold, with everything worn and eaten counted, wakes you chilled and
 # counts as this many minutes out in the cold toward catching a cold.
@@ -178,7 +190,9 @@ hud:
   # temperature, {stage} the stage in its colour, {meter} a gauge drawn like
   # EZvac's feels-like one (coloured cold to hot, the marker at the body's
   # temperature; EZvac BETA 1.0 Pilot 6, a plain bar before), {status} what
-  # else is happening, two at most (Fever, Wet, Fire, Fed, Cooled, Armor, Work),
+  # else is happening as icons, three at most: ✚ fever, ☂45% wet, ♨+60° by a
+  # fire, ☕3m a warm meal's minutes left (❄ a cool one), ⚡1.4× hungry from
+  # the cold (⚡ alone: too hungry to fight it), ☀+10° hot armor, ⚒+5° work,
   # {fever} the fever text while ill, {wet} "· Damp", "· Wet" or "· Soaked".
   # A line holding only {status} is left out while there is nothing to say.
   # At most 4 lines, but EZvac's sidebar has room for two besides its own

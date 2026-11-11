@@ -13,7 +13,31 @@ import java.util.function.Consumer;
  * cold and sleeping cold. Each can be switched off. Pure.
  */
 public record Surroundings(Wetness wetness, Fires fires, Food food, Armor armor, Exertion exertion, Breath breath,
-                           Sleep sleep, boolean darkness) {
+                           Sleep sleep, boolean darkness, Metabolism metabolism) {
+
+    /**
+     * The cold makes a body burn food to keep warm, and a hungry body has
+     * nothing to burn.
+     *
+     * @param coldMost       how much faster hunger goes at its coldest (0.75: 1.75 times)
+     * @param coldFullAtF    degrees below comfortable where that is reached
+     * @param hungryAt       food level (of 20) at or below which a body is hungry
+     * @param hungryColdRate how much faster the cold takes a hungry body's heat (0.5: 1.5 times)
+     */
+    public record Metabolism(boolean enabled, double coldMost, double coldFullAtF, int hungryAt, double hungryColdRate) {
+        public Metabolism {
+            nonNegative("metabolism.cold-hunger-most", coldMost);
+            positive("metabolism.cold-full-at-f", coldFullAtF);
+            if (hungryAt < 0 || hungryAt > 20) throw new IllegalArgumentException("metabolism.hungry-at-food must be 0 to 20");
+            nonNegative("metabolism.hungry-cold-rate-bonus", hungryColdRate);
+        }
+    }
+
+    /** How much faster hunger goes for a body this many degrees below comfortable (after all it wears and is near). */
+    public static double hungerFactor(double belowComfortF, Metabolism settings) {
+        if (!settings.enabled() || !(belowComfortF > 0.0)) return 1.0;
+        return 1.0 + settings.coldMost() * Math.min(1.0, belowComfortF / settings.coldFullAtF());
+    }
 
     /**
      * Rain and snow soak a body in the open, water at once; being wet makes the
@@ -142,8 +166,12 @@ public record Surroundings(Wetness wetness, Fires fires, Food food, Armor armor,
         Sleep sleep = section("sleep", warn, () -> new Sleep(config.getBoolean("sleep.enabled", true),
                 config.getDouble("sleep.counts-as-cold-minutes", 20.0)),
                 () -> new Sleep(config.getBoolean("sleep.enabled", true), 20.0));
+        Metabolism metabolism = section("metabolism", warn, () -> new Metabolism(config.getBoolean("metabolism.enabled", true),
+                config.getDouble("metabolism.cold-hunger-most", 0.75), config.getDouble("metabolism.cold-full-at-f", 30.0),
+                config.getInt("metabolism.hungry-at-food", 6), config.getDouble("metabolism.hungry-cold-rate-bonus", 0.5)),
+                () -> new Metabolism(config.getBoolean("metabolism.enabled", true), 0.75, 30.0, 6, 0.5));
         return new Surroundings(wetness, fires, food, armor, exertion, breath, sleep,
-                config.getBoolean("darkness-when-dying", true));
+                config.getBoolean("darkness-when-dying", true), metabolism);
     }
 
     static final Map<String, Double> DEFAULT_FIRES = Map.of("campfire", 60.0, "soul_campfire", 45.0, "fire", 45.0,

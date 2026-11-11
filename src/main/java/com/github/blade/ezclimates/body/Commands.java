@@ -124,6 +124,9 @@ final class Commands {
             factors.add((state.mealF > 0 ? "Warmed by " : "Cooled by ") + state.mealName + ": "
                     + plugin.degreesDelta(Math.abs(state.mealF)) + " for " + Math.max(1, Math.round(left / 1200.0))
                     + " more minute(s)");
+        if (state.hungerFactor >= 1.05) factors.add(String.format(java.util.Locale.ROOT,
+                "Keeping warm: hungry %.1f times as fast", state.hungerFactor));
+        if (state.hungry) factors.add("Hungry: the cold takes your heat faster. Eat something");
         for (String factor : factors) player.sendMessage(Component.text("  " + factor, NamedTextColor.GRAY));
         return true;
     }

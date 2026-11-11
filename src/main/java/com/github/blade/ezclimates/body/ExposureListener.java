@@ -85,6 +85,9 @@ final class ExposureListener implements Listener {
                 coldResistanceF(player, settings), player.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE),
                 restF, heatMultiplier, extras);
         state.bodyF = BodyModel.step(state.bodyF, conditions, seconds, settings);
+        // Keeping warm burns food: the colder it is after everything worn, eaten and near, the faster.
+        state.hungerFactor = Surroundings.hungerFactor(settings.comfort().lowF()
+                - BodyModel.effectiveF(conditions, settings.comfort()), plugin.surroundings().metabolism());
 
         state.daySeconds += seconds;
         if (BodyModel.exposedToCold(BodyModel.surroundingsF(conditions, settings.comfort()), settings.comfort())
@@ -132,12 +135,15 @@ final class ExposureListener implements Listener {
 
         double meal = around.food().enabled() && now < state.mealUntil ? state.mealF : 0.0;
         double wet = inWater ? 0.0 : state.wetness;
+        Surroundings.Metabolism metabolism = around.metabolism();
+        state.hungry = metabolism.enabled() && player.getFoodLevel() <= metabolism.hungryAt();
         Surroundings.Wetness wetting = around.wetness();
         // Back from the cold faster by a fire or after a warm meal; from the heat in water or after a cool drink.
         double rewarm = 1.0 + state.fireF * around.fires().rewarmPerF() + (meal > 0 ? 1.0 : 0.0);
         double recool = (inWater ? plugin.settings().rates().waterFactor() : 1.0) + (meal < 0 ? 1.0 : 0.0);
         return new BodyModel.Extras(state.exertion * around.exertion().mostF(), state.armorF,
-                wet * wetting.colderF(), wet * wetting.coolerF(), 1.0 + wet * wetting.coldRateBonus(),
+                wet * wetting.colderF(), wet * wetting.coolerF(),
+                (1.0 + wet * wetting.coldRateBonus()) * (state.hungry ? 1.0 + metabolism.hungryColdRate() : 1.0),
                 Math.max(0.0, meal), Math.max(0.0, -meal), rewarm, recool, inWater ? 0.0 : state.fireF);
     }
 
@@ -343,6 +349,7 @@ final class ExposureListener implements Listener {
         state.wetness = 0;
         state.exertion = 0;
         state.mealUntil = 0;
+        state.hungerFactor = 1.0;
     }
 
     /**
@@ -367,6 +374,14 @@ final class ExposureListener implements Listener {
         state.mealF = warm != null ? warm.f() : -cool.f();
         state.mealUntil = Bukkit.getCurrentTick() + (long) (meal.minutes() * 1200.0);
         state.mealName = name.replace('_', ' ');
+    }
+
+    /** In the cold, hunger goes faster: the body burns food to keep warm. */
+    @EventHandler(ignoreCancelled = true)
+    public void onHunger(org.bukkit.event.entity.EntityExhaustionEvent event) {
+        if (!(event.getEntity() instanceof Player player) || !plugin.affected(player)) return;
+        double factor = plugin.state(player).hungerFactor;
+        if (factor > 1.0) event.setExhaustion((float) (event.getExhaustion() * factor));
     }
 
     /** Mining counts as work, which warms the body. */

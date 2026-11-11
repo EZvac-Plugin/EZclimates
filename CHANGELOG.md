@@ -13,9 +13,11 @@
   you're fine at 0 °F) and bring a chilled body back quickly: about two
   minutes from freezing instead of ten. Water or a cool drink brings an
   overheated one down faster. Darkness closes in at the deadly stages.
+- Metabolism: keeping warm burns food, so the cold makes you hungry up to
+  1.75 times as fast, and a hungry body loses heat to the cold faster.
 - The HUD section is in EZvac's own style: `▍Body 98.6°F Normal`, then a
-  gauge like EZvac's feels-like one (EZvac BETA 1.0 Pilot 6) and status
-  tags such as Wet, Fire or Fever. Stock HUD lines are moved to the new
+  gauge like EZvac's feels-like one (EZvac BETA 1.0 Pilot 6) and icons
+  with numbers: ☂45% wet, ♨+60° by a fire, ⚡1.4× hungry from the cold. Stock HUD lines are moved to the new
   ones on upgrade; lines a server wrote itself stay.
 - Jumping the season by hand (`/hvac season set`) plans the weather afresh
   for the new season, so a summer heat wave no longer carries into winter.

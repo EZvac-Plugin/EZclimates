@@ -146,6 +146,16 @@ class SurroundingsTest {
     }
 
     @Test
+    void theColdBurnsFood() {
+        Surroundings.Metabolism metabolism = DEFAULTS.metabolism();
+        assertEquals(1.0, Surroundings.hungerFactor(0.0, metabolism));
+        assertEquals(1.0, Surroundings.hungerFactor(-10.0, metabolism), "never slower than normal");
+        assertEquals(1.375, Surroundings.hungerFactor(15.0, metabolism), 1e-9);
+        assertEquals(1.75, Surroundings.hungerFactor(60.0, metabolism), 1e-9, "at most 1.75 times");
+        assertEquals(6, metabolism.hungryAt());
+    }
+
+    @Test
     void badValuesWarnAndFallBackPerSection() {
         YamlConfiguration config = new YamlConfiguration();
         config.set("fires.radius", 40);

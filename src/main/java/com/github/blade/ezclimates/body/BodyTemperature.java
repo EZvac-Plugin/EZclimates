@@ -251,6 +251,11 @@ public final class BodyTemperature {
         return String.format(Locale.US, "%.1f °%s", units.fromFahrenheit(fahrenheit), units.name());
     }
 
+    /** A difference of degrees as a number in the server's units: Fahrenheit degrees, or Celsius ones. */
+    double degreesAmount(double fahrenheit) {
+        return ezvac.units().name().equals("C") ? fahrenheit * 5.0 / 9.0 : fahrenheit;
+    }
+
     /** A difference of degrees: {@code 12 °F}, or {@code 6.7 °C} when EZvac shows Celsius. */
     String degreesDelta(double fahrenheit) {
         TemperatureUnit units = ezvac.units();

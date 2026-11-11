@@ -40,6 +40,9 @@ final class PlayerState {
     /** The last step's warmth from fires, in degrees, for /bodytemp. */
     double fireF;
     double armorF;
+    /** How much faster hunger goes right now (1 normal), and whether the body is too hungry to fight the cold. */
+    double hungerFactor = 1.0;
+    boolean hungry;
 
     /** The persistent-data keys, made once per plugin. */
     record Keys(NamespacedKey body, NamespacedKey severity, NamespacedKey days, NamespacedKey water,
