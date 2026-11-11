@@ -184,8 +184,17 @@ final class ExposureListener implements Listener {
         if (state.breathTimer > 0) return;
         state.breathTimer = breath.everySeconds() * (0.8 + plugin.random().nextDouble() * 0.4);
         Location eye = player.getEyeLocation();
-        Location mouth = eye.add(eye.getDirection().multiply(0.35)).subtract(0, 0.15, 0);
-        player.getWorld().spawnParticle(Particle.CLOUD, mouth, 2, 0.03, 0.02, 0.03, 0.004);
+        org.bukkit.util.Vector ahead = eye.getDirection().setY(0);
+        if (ahead.lengthSquared() < 1.0e-6) ahead = new org.bukkit.util.Vector(0, 0, 1);
+        ahead.normalize();
+        Location mouth = eye.clone().add(ahead.clone().multiply(0.3)).subtract(0, 0.12, 0);
+        // White smoke drifts and fades by itself; sent a little forward and mostly up, it rises and vanishes
+        // (a count of 0 makes the offsets its direction and the last number its speed).
+        for (int puff = 0; puff < 2; puff++) {
+            double spread = (plugin.random().nextDouble() - 0.5) * 0.2;
+            player.getWorld().spawnParticle(Particle.WHITE_SMOKE, mouth, 0,
+                    ahead.getX() * 0.35 + spread, 1.0, ahead.getZ() * 0.35 - spread, 0.025);
+        }
     }
 
     /** Leather pieces worn, as degrees of cold tolerance. */
