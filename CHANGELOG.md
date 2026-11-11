@@ -13,7 +13,7 @@
   you're fine at 0 °F) and bring a chilled body back quickly: about two
   minutes from freezing instead of ten. Water or a cool drink brings an
   overheated one down faster. Darkness closes in at the deadly stages.
-- Soaked players stream water (falling and hanging drops, splashes at their
+- Soaked players stream water (falling drops, a splash or two at their
   feet) until they're only wet.
 - Metabolism: keeping warm burns food, so the cold makes you hungry up to
   1.75 times as fast, and a hungry body loses heat to the cold faster.

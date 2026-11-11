@@ -289,16 +289,15 @@ final class ExposureListener implements Listener {
     }
 
     /**
-     * A soaked body streaming water: drops falling from shoulders to knees,
-     * drops hanging off it before they fall, and splashes at the feet. Far
-     * heavier than sweat, so it reads as soaked at a glance.
+     * A soaked body streaming water: drops falling from shoulders to knees and
+     * a splash or two at the feet, heavier than sweat. Only drops that fall
+     * at once: hanging ones would be left floating behind a player who walks.
      */
     private static void drip(Player player) {
         Location body = player.getLocation().add(0, 1.0, 0);
         World world = player.getWorld();
-        world.spawnParticle(Particle.FALLING_WATER, body, 14, 0.3, 0.5, 0.3, 0.0);
-        world.spawnParticle(Particle.DRIPPING_WATER, body.clone().add(0, 0.3, 0), 5, 0.28, 0.35, 0.28, 0.0);
-        world.spawnParticle(Particle.SPLASH, player.getLocation().add(0, 0.05, 0), 4, 0.3, 0.0, 0.3, 0.0);
+        world.spawnParticle(Particle.FALLING_WATER, body, 7, 0.3, 0.5, 0.3, 0.0);
+        world.spawnParticle(Particle.SPLASH, player.getLocation().add(0, 0.05, 0), 2, 0.3, 0.0, 0.3, 0.0);
     }
 
     private static void hurt(Player player, boolean cold, ExposureSettings.Damage damage) {
