@@ -1,10 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
+
+Body temperature meets more than the air, a HUD in EZvac's style, and
+fixes for snow and for travelling fast. Runs on EZvac BETA 1.0 Pilot 4 or
+newer; the HUD's gauge and EZvac's weather words matching the sky need
+Pilot 6.
 
 - **Body temperature meets more than the air.** Rain and snow soak you in
   the open and water at once, and being wet makes the cold colder (the HUD
-  shows Damp, Wet or Soaked); fires warm you near them; warm food holds the
+  shows how wet, ☂45%); fires warm you near them; warm food holds the
   cold off and cool food the heat; metal armor bakes in the sun; sprinting,
   swimming and mining warm you; your breath shows in cold air; and a night
   asleep in the cold wakes you chilled. Each has its section in `body.yml`,

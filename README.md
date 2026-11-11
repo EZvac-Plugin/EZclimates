@@ -64,7 +64,7 @@ The choices are kept in EZvac's `config.yml` through restarts.
 This was the LiveExposure addon. It is off until you switch it on in `/hvac addons` (EZclimates, Body temperature), because by default it can kill (`lethal` in `body.yml`).
 
 Besides the air, the body meets (0.2.0; each can be switched off in `body.yml`):
-- **Getting wet:** rain soaks you in the open over a few minutes (snow slower, a thunderstorm faster), and water soaks you at once. Wet, the cold feels up to 12 °F colder and takes your heat twice as fast. You dry off out of the rain, faster in the warmth, by a fire and in the sun. The HUD shows Damp, Wet or Soaked.
+- **Getting wet:** rain soaks you in the open over a few minutes (snow slower, a thunderstorm faster), and water soaks you at once. Wet, the cold feels up to 12 °F colder and takes your heat twice as fast. You dry off out of the rain, faster in the warmth, by a fire and in the sun. The HUD shows how wet you are (☂45%), and soaked, water drips off you.
 - **Fires:** campfires, fire, lava and magma warm you within 4 blocks, most right beside them: against the cold up to comfortable, so beside a campfire you're comfortable even at 0 °F, and they bring a chilled body back quickly (about two minutes from freezing beside a campfire). In the heat only a quarter of their warmth counts, which still makes it worse. Water and a cool drink likewise bring an overheated body down faster.
 - **Darkness** closes in at the deadly stages, freezing and heatstroke.
 - **Food:** stews and soups, cooked meat and fish, baked potatoes and pumpkin pie hold the cold off for a few minutes, as leather does; melon, berries and water bottles hold off the heat.
