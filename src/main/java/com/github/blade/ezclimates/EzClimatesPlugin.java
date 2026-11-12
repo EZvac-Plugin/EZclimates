@@ -45,9 +45,40 @@ public final class EzClimatesPlugin extends JavaPlugin {
         }
     }
 
+    /** The front lengths 0.1.0 and 0.2.0 shipped, per season [min, max]: moved to vanilla's on upgrade. */
+    static final java.util.Map<String, double[]> OLD_FRONT_HOURS = java.util.Map.of("spring", new double[]{6, 18},
+            "summer", new double[]{2, 8}, "autumn", new double[]{8, 24}, "winter", new double[]{8, 30});
+
+    /**
+     * Fronts last as long as Minecraft's rain since 0.3.0. A season whose
+     * front-hours are still the old stock ones moves to the new; lengths a
+     * server set itself stay.
+     *
+     * @return the seasons moved
+     */
+    static java.util.List<String> upgradeFronts(org.bukkit.configuration.ConfigurationSection config) {
+        java.util.List<String> moved = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<String, double[]> old : OLD_FRONT_HOURS.entrySet()) {
+            String path = "weather.seasons." + old.getKey() + ".front-hours";
+            if (config.getDouble(path + ".min", -1) == old.getValue()[0]
+                    && config.getDouble(path + ".max", -1) == old.getValue()[1]) {
+                config.set(path + ".min", 12);
+                config.set(path + ".max", 24);
+                moved.add(old.getKey());
+            }
+        }
+        return moved;
+    }
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        java.util.List<String> moved = upgradeFronts(getConfig());
+        if (!moved.isEmpty()) {
+            saveConfig();
+            getLogger().info("Fronts now last as long as Minecraft's own rain, 12 to 24 in-game hours: moved "
+                    + String.join(", ", moved) + " from the old stock lengths in config.yml.");
+        }
         EzvacApi ezvac;
         try {
             ezvac = EzvacApi.get();

@@ -64,10 +64,11 @@ public record WeatherSettings(boolean enabled, Map<SeasonView.Season, Season> se
 
     public static WeatherSettings defaults() {
         Map<SeasonView.Season, Season> seasons = new EnumMap<>(SeasonView.Season.class);
-        seasons.put(SeasonView.Season.SPRING, new Season(1.5, 3.0, 6, 18, 0.25));
-        seasons.put(SeasonView.Season.SUMMER, new Season(2.0, 5.0, 2, 8, 0.55));
-        seasons.put(SeasonView.Season.AUTUMN, new Season(1.5, 3.0, 8, 24, 0.15));
-        seasons.put(SeasonView.Season.WINTER, new Season(2.0, 4.0, 8, 30, 0.05));
+        // Fronts last as long as Minecraft's own rain, 12 to 24 in-game hours (0.3.0).
+        seasons.put(SeasonView.Season.SPRING, new Season(1.5, 3.0, 12, 24, 0.25));
+        seasons.put(SeasonView.Season.SUMMER, new Season(2.0, 5.0, 12, 24, 0.55));
+        seasons.put(SeasonView.Season.AUTUMN, new Season(1.5, 3.0, 12, 24, 0.15));
+        seasons.put(SeasonView.Season.WINTER, new Season(2.0, 4.0, 12, 24, 0.05));
         return new WeatherSettings(true, Map.copyOf(seasons), 0.35,
                 new Swing(Map.of(SeasonView.Season.SPRING, 0.02, SeasonView.Season.SUMMER, 0.06,
                         SeasonView.Season.AUTUMN, 0.02, SeasonView.Season.WINTER, 0.0), 3, 6, 8, 15),

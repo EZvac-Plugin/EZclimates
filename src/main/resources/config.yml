@@ -107,12 +107,14 @@ ice:
 weather:
   enabled: true
   # Each season: dry spells between fronts (days), a front's length
-  # (in-game hours), and the share of fronts that bring thunder.
+  # (in-game hours), and the share of fronts that bring thunder. Fronts last
+  # as long as Minecraft's own rain, 12 to 24 hours (0.3.0; before, as little
+  # as 2 in summer); the seasons differ in how often they come and in thunder.
   seasons:
-    spring: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 6, max: 18 }, thunder: 0.25 }
-    summer: { dry-days: { min: 2.0, max: 5.0 }, front-hours: { min: 2, max: 8 }, thunder: 0.55 }
-    autumn: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 8, max: 24 }, thunder: 0.15 }
-    winter: { dry-days: { min: 2.0, max: 4.0 }, front-hours: { min: 8, max: 30 }, thunder: 0.05 }
+    spring: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 12, max: 24 }, thunder: 0.25 }
+    summer: { dry-days: { min: 2.0, max: 5.0 }, front-hours: { min: 12, max: 24 }, thunder: 0.55 }
+    autumn: { dry-days: { min: 1.5, max: 3.0 }, front-hours: { min: 12, max: 24 }, thunder: 0.15 }
+    winter: { dry-days: { min: 2.0, max: 4.0 }, front-hours: { min: 12, max: 24 }, thunder: 0.05 }
   snowstorm:
     # The share of winter's fronts that are snowstorms.
     share-of-winter-fronts: 0.35

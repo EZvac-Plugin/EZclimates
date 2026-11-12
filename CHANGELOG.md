@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Rain and snow last as long as Minecraft's own: every season's fronts
+  are 12 to 24 in-game hours (summer's were as short as 2). A config.yml
+  still on the old stock lengths moves to the new ones on start.
+
 ## 0.2.0
 
 Body temperature meets more than the air, a HUD in EZvac's style, and

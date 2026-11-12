@@ -181,8 +181,22 @@ class WeatherPlannerTest {
         config.set("weather.seasons.winter.front-hours.max", 2);
         WeatherSettings bad = WeatherSettings.load(config.getConfigurationSection("weather"), warnings::add);
         assertEquals(2, bad.exactDays());
-        assertEquals(30, bad.season(SeasonView.Season.WINTER).frontMaxHours());
+        assertEquals(24, bad.season(SeasonView.Season.WINTER).frontMaxHours());
         assertEquals(2, warnings.size(), String.valueOf(warnings));
+    }
+
+    @Test
+    void oldStockFrontLengthsMoveToVanillasAndAServersOwnStay() {
+        org.bukkit.configuration.file.YamlConfiguration config = new org.bukkit.configuration.file.YamlConfiguration();
+        config.set("weather.seasons.summer.front-hours.min", 2);
+        config.set("weather.seasons.summer.front-hours.max", 8);
+        config.set("weather.seasons.winter.front-hours.min", 10);
+        config.set("weather.seasons.winter.front-hours.max", 40);
+        assertEquals(java.util.List.of("summer"), EzClimatesPlugin.upgradeFronts(config));
+        assertEquals(12, config.getInt("weather.seasons.summer.front-hours.min"));
+        assertEquals(24, config.getInt("weather.seasons.summer.front-hours.max"));
+        assertEquals(40, config.getInt("weather.seasons.winter.front-hours.max"), "a server's own lengths stay");
+        assertEquals(java.util.List.of(), EzClimatesPlugin.upgradeFronts(config), "once only");
     }
 
     @Test
