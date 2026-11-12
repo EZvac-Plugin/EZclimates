@@ -240,17 +240,40 @@ public final class WeatherDriver implements WeatherPlan, Listener {
     void adopt(World world) {
         WeatherPlanner.Plan plan = plan(world);
         long now = world.getFullTime();
+        java.util.Random random = java.util.concurrent.ThreadLocalRandom.current();
         if (world.hasStorm()) {
-            long length = Math.max(WeatherPlanner.HOUR, world.getWeatherDuration());
+            long length = rainLength(world.getWeatherDuration(), random.nextDouble());
             plan.insert(new WeatherPlanner.Front(now, now + length, world.isThundering() ? now : -1L, false));
         } else {
-            long clear = Math.max(world.getClearWeatherDuration(), world.getWeatherDuration());
+            long clear = clearLength(Math.max(world.getClearWeatherDuration(), world.getWeatherDuration()),
+                    random.nextDouble());
             plan.endFrontAt(now);
             plan.fronts.removeIf(front -> front.start() >= now && front.start() < now + clear);
         }
         plan.until = Math.max(plan.until, now);
         dirty = true;
         drive(world, plan);
+    }
+
+    /** Minecraft's own rain and clear spells, in ticks: 12 000 to 24 000, and 12 000 to 180 000. */
+    static final long VANILLA_RAIN_MIN = 12_000L, VANILLA_RAIN_MAX = 24_000L,
+            VANILLA_CLEAR_MIN = 12_000L, VANILLA_CLEAR_MAX = 180_000L;
+
+    /**
+     * How long rain someone else started lasts: as long as they said, an
+     * hour at least, or, when nothing was said (a plugin such as EssentialsX
+     * calling setStorm, which leaves the clock at 0), as long as Minecraft's
+     * own rain would, 12 to 24 in-game hours, as vanilla does then.
+     */
+    static long rainLength(long given, double roll) {
+        if (given <= 0) return VANILLA_RAIN_MIN + Math.round(roll * (VANILLA_RAIN_MAX - VANILLA_RAIN_MIN));
+        return Math.max(WeatherPlanner.HOUR, given);
+    }
+
+    /** The same for clear weather: what was said, or vanilla's half a day to a week and a half. */
+    static long clearLength(long given, double roll) {
+        if (given <= 0) return VANILLA_CLEAR_MIN + Math.round(roll * (VANILLA_CLEAR_MAX - VANILLA_CLEAR_MIN));
+        return given;
     }
 
     // ----- What EZvac reads: the plan as an API WeatherPlan -----

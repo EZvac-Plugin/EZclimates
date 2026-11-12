@@ -200,6 +200,20 @@ class WeatherPlannerTest {
     }
 
     @Test
+    void rainAPluginStartsWithoutALengthLastsAsLongAsVanillasNotAnHour() {
+        // EssentialsX's /weather storm: setStorm(true), which leaves the clock at 0.
+        assertEquals(12_000L, WeatherDriver.rainLength(0, 0.0));
+        assertEquals(24_000L, WeatherDriver.rainLength(0, 1.0));
+        assertEquals(18_000L, WeatherDriver.rainLength(0, 0.5));
+        // A length that was given is kept, an hour at least.
+        assertEquals(30_000L, WeatherDriver.rainLength(30_000, 0.5));
+        assertEquals(WeatherPlanner.HOUR, WeatherDriver.rainLength(200, 0.5));
+        assertEquals(12_000L, WeatherDriver.clearLength(0, 0.0));
+        assertEquals(180_000L, WeatherDriver.clearLength(0, 1.0));
+        assertEquals(5_000L, WeatherDriver.clearLength(5_000, 0.5));
+    }
+
+    @Test
     void aSeasonSetByHandIsAJumpButTheCalendarRunningOnIsNot() {
         long day = WeatherPlanner.DAY, year = 120;
         org.junit.jupiter.api.Assertions.assertFalse(WeatherDriver.jumped(10, 5 * day, 11, 6 * day, year), "the next day");

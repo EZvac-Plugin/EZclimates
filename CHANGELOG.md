@@ -5,6 +5,9 @@
 - Rain and snow last as long as Minecraft's own: every season's fronts
   are 12 to 24 in-game hours (summer's were as short as 2). A config.yml
   still on the old stock lengths moves to the new ones on start.
+- Rain started by a plugin without a length (EssentialsX's `/weather
+  storm`) lasts as long as Minecraft's own, 12 to 24 in-game hours, as
+  vanilla does; it used to stop after an hour.
 
 ## 0.2.0
 
