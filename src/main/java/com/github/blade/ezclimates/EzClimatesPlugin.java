@@ -130,6 +130,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
         // Body temperature: LiveExposure, now a part of EZclimates. Off until a server switches it on.
         body = new com.github.blade.ezclimates.body.BodyTemperature(this, ezvac);
         body.prepare();
+        // Food that spoils (0.3.0): off until a server switches it on, since spoiled food is gone.
+        food = new com.github.blade.ezclimates.food.FoodSpoiling(this, ezvac, loadFood());
         // EZvac's Addons menu switches EZclimates, and each of its parts, while the server runs.
         this.ezvac = ezvac;
         com.github.blade.hvac.api.addon.AddonSwitches switches = ezvac.registerAddon(this, new Switches());
@@ -139,6 +141,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         weatherOn = switches.partOn(WEATHER);
         plantsOn = switches.partOn(PLANTS);
         bodyOn = switches.partOn(BODY);
+        foodOn = switches.partOn(FOOD);
         apply();
         showsWeather(ezvac);
         if (body.leftToLiveExposure())
@@ -186,14 +189,28 @@ public final class EzClimatesPlugin extends JavaPlugin {
     }
 
     static final String LOOKS = "looks", SNOW_AND_ICE = "snow-and-ice", WEATHER = "weather", PLANTS = "plants",
-            BODY = "body";
+            BODY = "body", FOOD = "food";
 
     private Plants plants;
     private boolean plantsOn = true;
 
     private EzvacApi ezvac;
     private com.github.blade.ezclimates.body.BodyTemperature body;
-    private boolean active = true, looksOn = true, snowOn = true, weatherOn = true, bodyOn;
+    private boolean active = true, looksOn = true, snowOn = true, weatherOn = true, bodyOn, foodOn;
+    private com.github.blade.ezclimates.food.FoodSpoiling food;
+
+    /** food.yml, written from the bundled one the first time (0.3.0). */
+    private com.github.blade.ezclimates.food.FoodSettings loadFood() {
+        java.io.File file = new java.io.File(getDataFolder(), "food.yml");
+        if (!file.isFile()) saveResource("food.yml", false);
+        return com.github.blade.ezclimates.food.FoodSettings.load(
+                org.bukkit.configuration.file.YamlConfiguration.loadConfiguration(file), getLogger()::warning);
+    }
+
+    /** Whether food spoiling starts on where the Addons menu was never used for it (food.yml on-by-default). */
+    private boolean foodByDefault() {
+        return food != null && food.settings().onByDefault();
+    }
 
     /** What EZvac's Addons menu switches: all of EZclimates, and its parts one by one. */
     private final class Switches implements com.github.blade.hvac.api.addon.Addon {
@@ -219,7 +236,11 @@ public final class EzClimatesPlugin extends JavaPlugin {
                             + " in vanilla.", on -> { plantsOn = on; apply(); }),
                     new Part(BODY, "Body temperature", "Heat and cold that wear down survival players, and sickness"
                             + " (LiveExposure). It can kill: see body.yml. Off: nobody's body changes.",
-                            on -> { bodyOn = on; apply(); }, body.onByDefault()));
+                            on -> { bodyOn = on; apply(); }, body.onByDefault()),
+                    new Part(FOOD, "Food spoiling", "Food keeps by the cold: in an EZvac fridge or freezer, a cold"
+                            + " cellar or a snowy biome it lasts longer, and left out it goes stale, spoils and rots."
+                            + " Spoiled food is gone: see food.yml. Off: food keeps forever.",
+                            on -> { foodOn = on; apply(); }, foodByDefault()));
         }
     }
 
@@ -234,6 +255,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         ezvac.setWeatherPlan(this, weatherNow ? weather : null);
         plants.setOn(active && plantsOn);
         body.setRunning(active && bodyOn);
+        food.setOn(active && foodOn);
     }
 
     /**
@@ -291,7 +313,7 @@ public final class EzClimatesPlugin extends JavaPlugin {
         @Override
         public java.util.Collection<String> suggest(io.papermc.paper.command.brigadier.CommandSourceStack source,
                                                     String[] args) {
-            if (args.length <= 1) return List.of("status", "here", "weather", "body", "adopt", "clear", "resume");
+            if (args.length <= 1) return List.of("status", "here", "weather", "body", "food", "adopt", "clear", "resume");
             if (args[0].equalsIgnoreCase("body"))
                 return body.complete(java.util.Arrays.copyOfRange(args, 1, args.length));
             if (args[0].equalsIgnoreCase("weather") && args.length == 2) return List.of("event", "end", "replan");
@@ -329,6 +351,17 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 if (fixed > 0) sender.sendMessage("Fixed " + fixed + " grass block(s) still looking snowed on.");
             }
             case "body" -> body.admin(sender, java.util.Arrays.copyOfRange(args, 1, args.length));
+            case "food" -> {
+                if (!food.on()) {
+                    sender.sendMessage("Food spoiling is off (/hvac addons, EZclimates, Food spoiling).");
+                    return;
+                }
+                if (!(sender instanceof org.bukkit.entity.Player player)) {
+                    sender.sendMessage("Hold some food in game and run /" + label + " food.");
+                    return;
+                }
+                food.describe(player).forEach(sender::sendMessage);
+            }
             case "status" -> {
                 sender.sendMessage("EZclimates " + getPluginMeta().getVersion() + ": " + EzClimatesBootstrap.copies
                         + " seasonal biomes; rain and snow " + (settings.rainAndSnow() ? "on" : "off") + ", colours "
@@ -337,6 +370,8 @@ public final class EzClimatesPlugin extends JavaPlugin {
                 sender.sendMessage("  Body temperature: " + (body.running() ? "on"
                         : body.leftToLiveExposure() ? "left to the LiveExposure plugin, which is still installed"
                         : "off (/hvac addons, EZclimates, Body temperature)") + ".");
+                sender.sendMessage("  Food spoiling: " + (food.on() ? "on" : "off (/hvac addons, EZclimates, Food spoiling)")
+                        + ".");
                 for (var world : getServer().getWorlds()) {
                     Looks.WorldLook look = looks.worlds.get(world.getUID());
                     if (look != null) sender.sendMessage("  " + world.getName() + ": " + look.stage.key().replace('_', ' ')

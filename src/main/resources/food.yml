@@ -1,0 +1,70 @@
+# Food that spoils (EZclimates 0.3.0), switched on in EZvac's Addons menu
+# (/hvac addons, EZclimates, Food). It starts off: spoiled food is gone.
+#
+# Food keeps by the temperature where it is kept: in your inventory by the air
+# around you, in a chest or barrel by the air there (a cold cellar, a snowy
+# biome), and in an EZvac fridge or freezer by its inside. It spoils at its
+# rate at 70 F, twice as fast every 18 F warmer, slower down to a fridge's
+# 38 F (by the food's fridge factor), and frozen at 28 F and below (by its
+# freezer factor). Fresh while over half its life is left, then stale (it
+# feeds half as much), then spoiled (it feeds a quarter and can make you
+# sick); half a life later it turns into what it spoils into, or goes.
+#
+# Each food: days (Minecraft days to spoil at 70 F), fridge and freezer (how
+# many times longer it keeps), into (what it becomes, or none), or never.
+on-by-default: false
+
+# Every food's days are multiplied by this: 2 keeps food twice as long.
+pace: 1.0
+
+# Stale food feeds this share of what it would; spoiled food this share.
+stale-feeds: 0.5
+spoiled-feeds: 0.25
+# Eating spoiled food: Hunger for this long, and a chance of Nausea.
+spoiled-hunger-seconds: 30
+spoiled-nausea-chance: 0.3
+
+foods:
+  apple: { days: 10, fridge: 4, freezer: 20, into: none }
+  golden_apple: never
+  enchanted_golden_apple: never
+  melon_slice: { days: 8, fridge: 3, freezer: 15, into: none }
+  sweet_berries: { days: 8, fridge: 3, freezer: 15, into: none }
+  glow_berries: { days: 8, fridge: 3, freezer: 15, into: none }
+  chorus_fruit: { days: 8, fridge: 3, freezer: 15, into: none }
+  carrot: { days: 10, fridge: 5, freezer: 20, into: none }
+  golden_carrot: never
+  potato: { days: 12, fridge: 5, freezer: 20, into: none }
+  baked_potato: { days: 6, fridge: 3, freezer: 10, into: none }
+  poisonous_potato: { days: 12, fridge: 5, freezer: 20, into: none }
+  beetroot: { days: 10, fridge: 5, freezer: 20, into: none }
+  dried_kelp: never
+  beef: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_beef: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  porkchop: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_porkchop: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  mutton: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_mutton: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  chicken: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_chicken: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  rabbit: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_rabbit: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  cod: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_cod: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  salmon: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  cooked_salmon: { days: 6, fridge: 3, freezer: 15, into: rotten_flesh }
+  tropical_fish: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  pufferfish: { days: 4, fridge: 4, freezer: 20, into: rotten_flesh }
+  bread: { days: 10, fridge: 3, freezer: 10, into: none }
+  cookie: { days: 14, fridge: 2, freezer: 10, into: none }
+  cake: { days: 8, fridge: 3, freezer: 10, into: none }
+  pumpkin_pie: { days: 6, fridge: 3, freezer: 10, into: none }
+  mushroom_stew: { days: 8, fridge: 3, freezer: 10, into: bowl }
+  beetroot_soup: { days: 8, fridge: 3, freezer: 10, into: bowl }
+  rabbit_stew: { days: 6, fridge: 3, freezer: 10, into: bowl }
+  suspicious_stew: { days: 6, fridge: 3, freezer: 10, into: bowl }
+  honey_bottle: never
+  milk_bucket: { days: 4, fridge: 3, freezer: 10, into: bucket }
+  egg: { days: 8, fridge: 4, freezer: 10, into: none }
+  rotten_flesh: never
+  spider_eye: never

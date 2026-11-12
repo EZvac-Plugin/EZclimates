@@ -1,7 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.3.0
 
+Food that spoils, and rain that lasts as long as Minecraft's. Runs on EZvac
+BETA 1.0 Pilot 4 or newer; fridges and freezers need Pilot 7.
+
+- **Food that spoils**, a new part in `/hvac addons` (off until switched
+  on). Food keeps by the cold: in an EZvac fridge or freezer (Pilot 7) it
+  lasts much longer, a cold cellar or a snowy biome helps, and left out it
+  goes stale (feeds half as much), spoils (feeds a quarter, Hunger, maybe
+  Nausea) and turns into rotten flesh, a bowl or a bucket. Each food's life
+  is in the new `food.yml`; `/ezclimates food` shows the food in your hand.
 - Rain and snow last as long as Minecraft's own: every season's fronts
   are 12 to 24 in-game hours (summer's were as short as 2). A config.yml
   still on the old stock lengths moves to the new ones on start.

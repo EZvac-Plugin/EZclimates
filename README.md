@@ -12,6 +12,7 @@
 - **Crops that grow by the air.** Crops, stems, cocoa, sugar cane and saplings grow by EZvac's air where they stand: not at all at 36 °F or colder, slowly in cool air, at their usual pace from 60 °F, half as fast again in warm humid air, and slower in great heat. The reading is the one a thermometer there gives, so **a greenhouse an EZvac system keeps warm grows through winter** while the field outside waits for spring. `/ezclimates here` says how fast crops grow where you stand, and why.
 - **The ground through the year.** In spring, flowers come up on open grass round players once the air reaches 45 °F (wildflowers among them in meadows, plains and birch woods) and pink petals under cherry trees; flowers last through summer and die back in autumn, petals go after spring. In autumn, leaf litter gathers under oak, birch and other broadleaf trees and lies through winter, and mushrooms come up under trees. Each is recorded like snow, so only EZclimates' own ever go, and a flower a player planted stays.
 - **Body temperature** (LiveExposure, now part of EZclimates; off until you switch it on). Every player's body rests at 98.6 °F, falls in the cold and rises in the heat by EZvac's feels-like, the sun and the shade included, and settles once they're comfortable. Stay out too long and it hurts: slowness, weakness, then damage, with an optional sickness system. See [Body temperature](#body-temperature).
+- **Food that spoils** (0.3.0; off until you switch it on). Food keeps by the cold: in an EZvac fridge or freezer it lasts much longer, a cold cellar or a snowy biome helps, and left out in summer it goes stale, spoils and rots. See [Food that spoils](#food-that-spoils).
 - **Switched from EZvac's Addons menu.** `/hvac addons` switches EZclimates on and off while the server runs, and each part on its own: seasonal looks, snow and ice, planned weather, plants, and body temperature.
 - **No re-logging.** When the season turns or rain turns to snow, the chunks players already have are resent, nearest first, and the client redraws them in place.
 
@@ -39,6 +40,7 @@ Install the jar in `plugins/` and **restart** (not `/reload`): the seasonal biom
 | `/ezclimates body reload` | Reads `body.yml` again |
 | `/ezclimates body set <player> <°F>` | Sets a player's body temperature |
 | `/ezclimates body sick <player> <mild\|moderate\|severe>`, `cure <player>`, `roll <player>` | Makes a player ill, cures them, or rolls their chance of falling ill now |
+| `/ezclimates food` | The food in your hand: how fresh it is, and how fast it's going where you stand |
 | `/ezclimates adopt [blocks]` | Takes on thin snow nobody recorded within that many blocks of you (64 by default), so it melts like EZclimates' own: for strays left by a server that was killed mid-snowfall. Only in biomes where Minecraft itself never snows. It also fixes grass still looking snowed on (gray top, white sides) after its snow melted |
 | `/ezclimates clear` | Melts every recorded block of snow and ice, in loaded chunks now and in others as they load, and places no more: the way to uninstall cleanly. Lasts across restarts |
 | `/ezclimates resume` | Back to normal after `clear` |
@@ -56,6 +58,7 @@ EZvac's Addons menu (`/hvac addons`) lists EZclimates. The dye under it switches
 | Planned weather | The plan is dropped and Minecraft's weather runs itself |
 | Plants | Crops grow as in vanilla, and no flowers or mushrooms come up (those already up go) |
 | Body temperature | Nobody's body changes. This one starts off |
+| Food spoiling | Food keeps forever, and what it says stays as it was. This one starts off |
 
 The choices are kept in EZvac's `config.yml` through restarts.
 
@@ -82,6 +85,20 @@ Besides the air, the body meets (0.2.0; each can be switched off in `body.yml`):
 - **On EZvac's HUD** (0.2.0) the section is two lines in EZvac's own style: `▍Body 98.6°F Normal`, then a gauge drawn like EZvac's feels-like one (coloured cold to hot, the marker at your temperature; EZvac BETA 1.0 Pilot 6 or newer, a plain bar before) and up to three icons: ✚ fever, ☂45% wet, ♨+60° by a fire, ☕3m a warm meal (❄ a cool one), ⚡1.4× hungry from the cold, ☀+10° hot armor, ⚒+5° working. EZvac's sidebar leaves addons two of its 15 lines. The section is `{section:ezclimates:body}`; a HUD format that named `{section:liveexposure:body}` needs that changed.
 - LiveExposure 0.2.0 stays available for Minecraft 1.21.x servers, which EZclimates doesn't run on.
 
+## Food that spoils
+
+Switched on in `/hvac addons` (EZclimates, Food spoiling). It starts off, because spoiled food is gone.
+
+- **Food keeps by the temperature where it's kept:** in your inventory by the air around you, in a chest or barrel by the air there, and in an [EZvac fridge or freezer](https://github.com/EZvac-Plugin/EZvac/blob/main/docs/fridges-and-freezers.md) by its inside (EZvac BETA 1.0 Pilot 7 or newer).
+- **How fast:** at 70 °F raw meat and fish keep 4 Minecraft days, fruit and vegetables 8 to 12, bread 10. Every 18 °F warmer it goes twice as fast. A fridge keeps food 3 to 5 times longer, and frozen (28 °F and colder) about 10 to 20 times. Golden foods, honey, dried kelp, rotten flesh and spider eyes never spoil.
+- **On the item:** `Fresh · 3 days`, `Stale · 1 day` or `Spoiled`.
+  - Stale food feeds half as much.
+  - Spoiled food feeds a quarter and gives you Hunger, with a chance of Nausea.
+  - Half a life after it spoils, it turns into rotten flesh (meat and fish), an empty bowl (stews), an empty bucket (milk), or goes.
+- **Food of about the same age kept in the same place still stacks.** Food is only looked at when someone could see it: in players' inventories every 30 seconds, and in a container when it's opened or shut. So nothing runs for food nobody looks at.
+
+Each food's days, its fridge and freezer factors and what it turns into are in [`food.yml`](src/main/resources/food.yml), with `pace` to make all of them longer or shorter.
+
 ## How it works
 
 At start-up EZclimates reads the server's own vanilla biome files and writes a datapack of seasonal copies of the 52 surface overworld biomes: 5 stages × rain, snow or dry, 728 in all, named like `ezclimates:plains/autumn_late_snow` so F3 still says which biome it is. Each copy differs only in its temperature, precipitation and colours; spawns, sky, fog, music and water stay. Paper loads the pack, and packetevents swaps each chunk section's biomes for their copies in what each player is sent, by EZvac's rain-or-snow edge (a copy per 4×4 biome cell, so rain and snow meet along a wavy line on the land, never in layers above you) and the year's progress. Nothing of Mojang's ships in the jar.
@@ -90,7 +107,7 @@ The server still uses the real biomes, so a player in a desert thunderstorm sees
 
 ## Settings
 
-See [`body.yml`](src/main/resources/body.yml) for body temperature, and [`config.yml`](src/main/resources/config.yml) for the rest: plants (the temperatures crops grow between, flowers and mushrooms), rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
+See [`body.yml`](src/main/resources/body.yml) for body temperature, [`food.yml`](src/main/resources/food.yml) for food that spoils, and [`config.yml`](src/main/resources/config.yml) for the rest: plants (the temperatures crops grow between, flowers and mushrooms), rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
 
 ## Licence
 
