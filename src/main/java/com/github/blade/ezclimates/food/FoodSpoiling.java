@@ -21,6 +21,7 @@ import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -54,6 +55,8 @@ public final class FoodSpoiling implements Listener {
     private final NamespacedKey spoilAt, rateStep, lore;
     /** EZvac's storageTemperatureF (API 1.12), looked up once; null on an older EZvac. */
     private final Method storage;
+    /** And its slot by slot form, for a mini fridge's chiller box; null where EZvac hasn't it. */
+    private final Method slotStorage;
     private boolean on;
     private BukkitTask sweep;
 
@@ -71,6 +74,14 @@ public final class FoodSpoiling implements Listener {
             found = null;
         }
         this.storage = found;
+        Method bySlot;
+        try {
+            bySlot = EzvacApi.class.getMethod("storageTemperatureF", World.class, int.class, int.class, int.class,
+                    int.class);
+        } catch (NoSuchMethodException older) {
+            bySlot = null;
+        }
+        this.slotStorage = bySlot;
     }
 
     public FoodSettings settings() { return settings; }
@@ -149,7 +160,28 @@ public final class FoodSpoiling implements Listener {
         if (inventory.getHolder(false) instanceof Player) return;
         Location location = inventory.getLocation();
         if (location == null || location.getWorld() == null) return;
-        keepAll(inventory, storageAt(location), clock());
+        double everywhere = storageAt(location);
+        if (slotStorage == null) {
+            keepAll(inventory, everywhere, clock());
+            return;
+        }
+        // Slot by slot: the same all through but for a mini fridge's chiller box, a little colder.
+        long now = clock();
+        ItemStack[] contents = inventory.getContents();
+        for (int slot = 0; slot < contents.length; slot++) {
+            ItemStack item = contents[slot];
+            if (item == null || item.getType().isAir()) continue;
+            double here = everywhere;
+            try {
+                double found = (double) slotStorage.invoke(ezvac, location.getWorld(), location.getBlockX(),
+                        location.getBlockY(), location.getBlockZ(), slot);
+                if (Double.isFinite(found)) here = found;
+            } catch (ReflectiveOperationException | RuntimeException failed) {
+                // The container's temperature, then.
+            }
+            ItemStack kept = keep(item, here, now);
+            if (kept != item) inventory.setItem(slot, kept);
+        }
     }
 
     /** Every food stack in an inventory, looked at again where it is kept now. */
@@ -200,6 +232,12 @@ public final class FoodSpoiling implements Listener {
         return into == null || into.isAir() ? new ItemStack(Material.AIR) : new ItemStack(into, Math.min(amount, into.getMaxStackSize()));
     }
 
+    /** Whether a lore line is one of its own: {@code Fresh · ...}, {@code Stale · ...} or {@code Spoiled}. */
+    static boolean isFreshnessLine(String plain) {
+        return plain.startsWith("Fresh · ") || plain.startsWith("Stale · ") || plain.equals("Stale")
+                || plain.startsWith("Spoiled");
+    }
+
     /** {@code Fresh · 3 days}, {@code Stale · 1 day}, or {@code Spoiled}, coloured. */
     static Component line(Freshness.Stage stage, double daysLeft) {
         String days = daysLeft < 1.0 ? "under a day" : Math.round(daysLeft) == 1 ? "1 day" : Math.round(daysLeft) + " days";
@@ -211,10 +249,12 @@ public final class FoodSpoiling implements Listener {
         return text.decoration(TextDecoration.ITALIC, false);
     }
 
-    /** Its freshness as the item's last lore line, replacing the one it wrote before. */
+    /** Its freshness as a lore line, replacing the one it wrote before and nothing else. */
     private void writeLine(ItemMeta meta, PersistentDataContainer data, Component line) {
         List<Component> lines = meta.lore() == null ? new ArrayList<>() : new ArrayList<>(meta.lore());
-        if (data.has(lore, PersistentDataType.BYTE) && !lines.isEmpty()) lines.remove(lines.size() - 1);
+        // Its own line only, found by what it says: another plugin's line after it (EZvac's frosted over) stays.
+        if (data.has(lore, PersistentDataType.BYTE))
+            lines.removeIf(old -> isFreshnessLine(PlainTextComponentSerializer.plainText().serialize(old)));
         lines.add(line);
         meta.lore(lines);
         data.set(lore, PersistentDataType.BYTE, (byte) 1);

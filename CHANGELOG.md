@@ -11,6 +11,9 @@ BETA 1.0 Pilot 4 or newer; fridges and freezers need Pilot 7.
   goes stale (feeds half as much), spoils (feeds a quarter, Hunger, maybe
   Nausea) and turns into rotten flesh, a bowl or a bucket. Each food's life
   is in the new `food.yml`; `/ezclimates food` shows the food in your hand.
+  A mini fridge's chiller box keeps its slot colder than the rest, and an
+  item's freshness line never replaces another plugin's line (EZvac's
+  frosted over).
 - Rain and snow last as long as Minecraft's own: every season's fronts
   are 12 to 24 in-game hours (summer's were as short as 2). A config.yml
   still on the old stock lengths moves to the new ones on start.
