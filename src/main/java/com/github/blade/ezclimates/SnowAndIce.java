@@ -356,6 +356,9 @@ public final class SnowAndIce implements Listener {
             return;
         }
         Block above = top.getRelative(BlockFace.UP);
+        // Nothing lies above the world's top (0.3.1): snow "settled" on a block at the build limit was
+        // recorded outside the world, and looking it over threw every few seconds.
+        if (above.getY() >= world.getMaxHeight()) return;
         // Snow never settles by a torch, a lamp or anything else this bright, as in vanilla: it would melt.
         if (lit(above)) return;
         BlockData snow = Material.SNOW.createBlockData();
@@ -512,7 +515,14 @@ public final class SnowAndIce implements Listener {
             boolean held = deepWinter(world);
             for (int i = placed.size() - 1; i >= 0 && budget > 0; i--, budget--) {
                 int entry = placed.get(i);
-                Block block = chunk.getBlock(Placed.x(entry), Placed.y(entry), Placed.z(entry));
+                int y = Placed.y(entry);
+                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+                    // Recorded outside the world by 0.3.0 (snow on a block at the build limit): forgotten.
+                    placed.remove(entry);
+                    changed = true;
+                    continue;
+                }
+                Block block = chunk.getBlock(Placed.x(entry), y, Placed.z(entry));
                 if (Placed.what(entry) == Placed.What.SNOW) {
                     if (block.getType() != Material.SNOW) {
                         placed.uncover(entry);

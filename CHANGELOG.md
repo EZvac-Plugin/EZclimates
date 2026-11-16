@@ -8,6 +8,12 @@
   counted. Now it is day 1 the day it is started. And days are the world's
   days: one starting in the afternoon no longer says "day 1" two days
   running.
+- **No more "y out of range" in the console.** Snow falling on a block at
+  the very top of the world (y 319) was recorded one above it, outside the
+  world, and EZclimates threw an error every few seconds looking it over.
+  Nothing is recorded up there now, and such records already saved are
+  dropped without a word. No snow was ever there to see: Minecraft can't
+  place a block above the top.
 
 ## 0.3.0
 
