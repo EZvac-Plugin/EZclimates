@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.2
+
+**Lighter with many players about.** With twenty players in a winter storm,
+EZclimates took 11.3% of the server thread on 0.3.1 and 8.0% now.
+
+- **Seasonal looks cost 40% less.** Twice a second every chunk round every
+  player was checked for being loaded before its snow line was found fresh,
+  which nearly all are; the freshness comes first now.
+- **No more long ticks when the season or the weather turns.** Every player's
+  chunks went stale at once and each player's share was resent in the same
+  tick (80 ms with twenty players). Resends now share one small budget a
+  tick, everyone in turn.
+- Snow lines worked out in new ground stay within their budget: the slowest
+  tick went from 7 ms to 2 ms.
+- The area snow falls in no longer makes thousands of small objects a second.
+
 ## 0.3.1
 
 - **A heat wave's or cold snap's days are counted right.** One started with
