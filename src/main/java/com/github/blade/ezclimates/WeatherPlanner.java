@@ -35,9 +35,27 @@ public final class WeatherPlanner {
         boolean thunders(long time) { return thunderFrom >= 0 && time >= thunderFrom && time < end && !snowstorm; }
     }
 
-    /** A heat wave (positive {@code peakF}) or a cold snap, easing in and out around its middle. */
-    public record Swing(long start, long end, double peakF) {
+    /**
+     * A heat wave (positive {@code peakF}) or a cold snap, easing in and out around its middle.
+     * {@code countedFrom} is when its day 1 began: its start, or for one started by hand, when it was
+     * started, its ease in being put in the past so it is at full strength at once.
+     */
+    public record Swing(long start, long end, double peakF, long countedFrom) {
+        public Swing(long start, long end, double peakF) {
+            this(start, end, peakF, start);
+        }
+
         boolean covers(long time) { return time >= start && time < end; }
+
+        /** Which of its days a time falls on, by the world's days: 1 on the day it began. */
+        long dayOf(long time) {
+            return Math.floorDiv(dayStart(time) - dayStart(countedFrom), DAY) + 1;
+        }
+
+        /** How many of the world's days it falls on, from the day it began. */
+        long days() {
+            return Math.max(1, dayOf(Math.max(countedFrom, end - 1)));
+        }
 
         /** Its shift at a time: none at its ends, all of it through its middle half. */
         double shiftAt(long time) {
@@ -140,7 +158,7 @@ public final class WeatherPlanner {
                 double now = swing.shiftAt(time);
                 // A short swing of its own size now, at its peak from the start, easing out to nothing.
                 swings.set(i, new Swing(time - 3 * easeTicks, time + easeTicks,
-                        Math.abs(swing.peakF()) < 1e-9 ? 0.0 : now));
+                        Math.abs(swing.peakF()) < 1e-9 ? 0.0 : now, swing.countedFrom()));
                 ended = true;
             }
             return ended;
@@ -290,8 +308,10 @@ public final class WeatherPlanner {
         if (what == WeatherEvent.THUNDERSTORM && front != null && front.thunderFrom() > from)
             return "Thunder from " + clock(front.thunderFrom());
         if (what == WeatherEvent.HEAT_WAVE || what == WeatherEvent.COLD_SNAP) {
-            long day = Math.floorDiv(from - swing.start(), DAY) + 1;
-            long of = Math.max(1, Math.round((swing.end() - swing.start()) / (double) DAY));
+            // By the world's days (EZclimates 0.3.1): a start in the afternoon was "day 1" two days running,
+            // and one started by hand counted the ease in put in its past ("day 2 of 7" on its first day).
+            long day = swing.dayOf(from);
+            long of = swing.days();
             return what.displayName() + (day >= 1 && day <= of ? ", day " + day + " of " + of : "");
         }
         return what.displayName();

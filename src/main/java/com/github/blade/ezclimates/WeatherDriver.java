@@ -367,8 +367,8 @@ public final class WeatherDriver implements WeatherPlan, Listener {
             case "snowstorm" -> plan.insert(new WeatherPlanner.Front(now, now + length, -1L, true));
             case "thunderstorm" -> plan.insert(new WeatherPlanner.Front(now, now + length, now, false));
             // Started by hand, at full strength now: its ease in is put in the past.
-            case "heatwave" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, settings.heatWave().maxF()));
-            case "coldsnap" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, -settings.coldSnap().maxF()));
+            case "heatwave" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, settings.heatWave().maxF(), now));
+            case "coldsnap" -> plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, -settings.coldSnap().maxF(), now));
             default -> {
                 return "Events: snowstorm, thunderstorm, heatwave, coldsnap.";
             }
@@ -412,8 +412,9 @@ public final class WeatherDriver implements WeatherPlan, Listener {
                 }
                 for (String text : entry.getStringList("swings")) {
                     String[] part = text.split(",");
-                    plan.swings.add(new WeatherPlanner.Swing(Long.parseLong(part[0]), Long.parseLong(part[1]),
-                            Double.parseDouble(part[2])));
+                    long start = Long.parseLong(part[0]);
+                    plan.swings.add(new WeatherPlanner.Swing(start, Long.parseLong(part[1]),
+                            Double.parseDouble(part[2]), part.length > 3 ? Long.parseLong(part[3]) : start));
                 }
                 plans.put(UUID.fromString(id), plan);
             } catch (RuntimeException unreadable) {
@@ -435,7 +436,8 @@ public final class WeatherDriver implements WeatherPlan, Listener {
             yaml.set(path + ".revised-day", plan.revisedDay);
             yaml.set(path + ".fronts", plan.fronts.stream().map(f -> f.start() + "," + f.end() + "," + f.thunderFrom()
                     + "," + f.snowstorm()).toList());
-            yaml.set(path + ".swings", plan.swings.stream().map(s -> s.start() + "," + s.end() + "," + s.peakF()).toList());
+            yaml.set(path + ".swings", plan.swings.stream().map(s -> s.start() + "," + s.end() + "," + s.peakF()
+                    + (s.countedFrom() != s.start() ? "," + s.countedFrom() : "")).toList());
         }
         try {
             yaml.save(file);

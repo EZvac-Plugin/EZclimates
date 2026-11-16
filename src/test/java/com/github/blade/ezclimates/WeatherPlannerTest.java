@@ -154,6 +154,34 @@ class WeatherPlannerTest {
     }
 
     @Test
+    void aHeatWavesDaysAreTheWorldsDays() {
+        // 0.3.1: one starting in the afternoon said "day 1" two days running.
+        WeatherPlanner planner = new WeatherPlanner(settings(7, 0.0));
+        WeatherPlanner.Plan plan = new WeatherPlanner.Plan();
+        plan.until = 9 * DAY;
+        plan.swings.add(new WeatherPlanner.Swing(6 * HOUR, 6 * HOUR + 3 * DAY, 10)); // today 12:00, three days
+        List<WeatherPlan.Outlook> outlook = planner.outlook(plan, 7 * HOUR, 7, WINTER);
+        assertEquals("Heat wave, day 1 of 4", outlook.get(0).note());
+        assertEquals("Heat wave, day 2 of 4", outlook.get(1).note());
+        assertEquals("Heat wave, day 3 of 4", outlook.get(2).note());
+        assertEquals("Heat wave, day 4 of 4", outlook.get(3).note(), "it ends at noon on the fourth day");
+    }
+
+    @Test
+    void oneStartedByHandIsOnItsFirstDay() {
+        // 0.3.1: started for five days, it said "day 2 of 7": its ease in, put in the past, was counted.
+        WeatherPlanner planner = new WeatherPlanner(settings(7, 0.0));
+        WeatherPlanner.Plan plan = new WeatherPlanner.Plan();
+        plan.until = 9 * DAY;
+        long now = 0, length = 5 * DAY;
+        plan.insert(new WeatherPlanner.Swing(now - length / 3, now + length, 10, now));
+        List<WeatherPlan.Outlook> outlook = planner.outlook(plan, now, 7, WINTER);
+        assertEquals("Heat wave, day 1 of 5", outlook.get(0).note());
+        assertEquals("Heat wave, day 5 of 5", outlook.get(4).note());
+        assertEquals(10.0, plan.swings().get(0).shiftAt(now), 1e-9, "at full strength at once, as before");
+    }
+
+    @Test
     void anAdminsWeatherAndSleepingAreTakenIn() {
         WeatherPlanner.Plan plan = new WeatherPlanner.Plan();
         plan.fronts.add(new WeatherPlanner.Front(10 * HOUR, 20 * HOUR, 15 * HOUR, false));

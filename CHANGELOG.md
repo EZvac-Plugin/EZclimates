@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+- **A heat wave's or cold snap's days are counted right.** One started with
+  `/ezclimates weather event heatwave` said "day 2 of 7" on its first day
+  of five: its ease in, put in the past so it starts at full strength, was
+  counted. Now it is day 1 the day it is started. And days are the world's
+  days: one starting in the afternoon no longer says "day 1" two days
+  running.
+
 ## 0.3.0
 
 Food that spoils, and rain that lasts as long as Minecraft's. Runs on EZvac
