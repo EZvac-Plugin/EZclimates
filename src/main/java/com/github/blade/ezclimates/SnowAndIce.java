@@ -76,14 +76,15 @@ public final class SnowAndIce implements Listener {
     }
 
     /** How many chunks snow, ice and plants may come up in right now. */
-    public int areaSize() { return area.size(); }
+    public int areaSize() { return areaKeys.size(); }
 
     /** The top block of a random column in a random chunk round players, or null where that isn't loaded. */
     public Block randomGround(java.util.Random random, HeightMap heightMap) {
-        if (area.isEmpty()) return null;
-        long[] chunk = area.get(random.nextInt(area.size()));
-        World world = org.bukkit.Bukkit.getWorld(new UUID(chunk[0], chunk[1]));
-        int cx = Looks.chunkX(chunk[2]), cz = Looks.chunkZ(chunk[2]);
+        if (areaKeys.isEmpty()) return null;
+        int pick = random.nextInt(areaKeys.size());
+        World world = org.bukkit.Bukkit.getWorld(areaWorlds.get(pick));
+        long key = areaKeys.getLong(pick);
+        int cx = Looks.chunkX(key), cz = Looks.chunkZ(key);
         if (world == null || !world.isChunkLoaded(cx, cz)) return null;
         return world.getHighestBlockAt((cx << 4) + random.nextInt(16), (cz << 4) + random.nextInt(16), heightMap);
     }
@@ -117,7 +118,12 @@ public final class SnowAndIce implements Listener {
     /** Chunks whose records changed since they were last written into the chunk, per world. */
     private final Map<UUID, it.unimi.dsi.fastutil.longs.LongOpenHashSet> unsaved = new HashMap<>();
     /** The chunks snow and ice may fall in: near any player, each once, as of the last second. */
-    private final List<long[]> area = new ArrayList<>();
+    private final it.unimi.dsi.fastutil.longs.LongArrayList areaKeys = new it.unimi.dsi.fastutil.longs.LongArrayList();
+    /**
+     * Each area chunk's world, by the same index (0.3.2): the area used to be a
+     * new array per chunk, thousands a second with many players about.
+     */
+    private final List<UUID> areaWorlds = new ArrayList<>();
     /** The fastest rate any world in the area has: a snowstorm's, or 1. */
     private double maxBoost = 1.0;
     private long ticks;
@@ -283,46 +289,50 @@ public final class SnowAndIce implements Listener {
      * however many players are near it, as vanilla ticks them.
      */
     private void gather(Iterable<World> worlds) {
-        area.clear();
+        areaKeys.clear();
+        areaWorlds.clear();
         maxBoost = 1.0;
         for (World world : worlds) {
             if (!LookUpdater.seasonal(world) || world.getPlayers().isEmpty()) continue;
             int radius = settings.snowRadius() > 0 ? (settings.snowRadius() + 15) >> 4 : world.getSimulationDistance();
             it.unimi.dsi.fastutil.longs.LongOpenHashSet seen = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
-            long most = world.getUID().getMostSignificantBits(), least = world.getUID().getLeastSignificantBits();
+            UUID id = world.getUID();
             for (Player player : world.getPlayers()) {
                 int cx = player.getLocation().getBlockX() >> 4, cz = player.getLocation().getBlockZ() >> 4;
                 for (int x = cx - radius; x <= cx + radius; x++)
                     for (int z = cz - radius; z <= cz + radius; z++)
-                        if (seen.add(Looks.chunkKey(x, z)) && world.isChunkLoaded(x, z))
-                            area.add(new long[]{most, least, Looks.chunkKey(x, z)});
+                        if (seen.add(Looks.chunkKey(x, z)) && world.isChunkLoaded(x, z)) {
+                            areaKeys.add(Looks.chunkKey(x, z));
+                            areaWorlds.add(id);
+                        }
             }
             maxBoost = Math.max(maxBoost, boost.applyAsDouble(world));
         }
     }
 
     private void place() {
-        if (area.isEmpty()) return;
+        if (areaKeys.isEmpty()) return;
         ThreadLocalRandom random = ThreadLocalRandom.current();
         // Vanilla's pace: each chunk a try one tick in 48, times snow.rate, within the budget. Tries are
         // made at the fastest world's rate; a world without a snowstorm keeps only its share of them.
-        owed += area.size() * maxBoost / VANILLA_ONE_IN * settings.snowRate();
+        owed += areaKeys.size() * maxBoost / VANILLA_ONE_IN * settings.snowRate();
         int tries = (int) Math.min(settings.blocksPerTick(), Math.floor(owed));
         owed = Math.min(owed - tries, settings.blocksPerTick());
         World last = null;
-        long lastMost = 0, lastLeast = 0;
+        UUID lastId = null;
         for (int i = 0; i < tries; i++) {
-            long[] chunk = area.get(random.nextInt(area.size()));
-            if (last == null || chunk[0] != lastMost || chunk[1] != lastLeast) {
-                last = org.bukkit.Bukkit.getWorld(new UUID(chunk[0], chunk[1]));
-                lastMost = chunk[0];
-                lastLeast = chunk[1];
+            int pick = random.nextInt(areaKeys.size());
+            UUID id = areaWorlds.get(pick);
+            if (last == null || id != lastId) {
+                last = org.bukkit.Bukkit.getWorld(id);
+                lastId = id;
             }
             World world = last;
             if (world == null) continue;
             if (maxBoost > 1.0 && random.nextDouble() * maxBoost > boost.applyAsDouble(world)) continue;
-            int x = (Looks.chunkX(chunk[2]) << 4) + random.nextInt(16);
-            int z = (Looks.chunkZ(chunk[2]) << 4) + random.nextInt(16);
+            long key = areaKeys.getLong(pick);
+            int x = (Looks.chunkX(key) << 4) + random.nextInt(16);
+            int z = (Looks.chunkZ(key) << 4) + random.nextInt(16);
             if (!world.isChunkLoaded(x >> 4, z >> 4)) continue;
             Block top = world.getHighestBlockAt(x, z, HeightMap.MOTION_BLOCKING);
             // Ground left looking snowed on after its snow went heals as it is looked at.

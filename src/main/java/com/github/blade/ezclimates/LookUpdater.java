@@ -193,10 +193,23 @@ public final class LookUpdater implements Listener {
             worstLines = Math.max(worstLines, System.nanoTime() - started);
         }
         long resending = System.nanoTime();
+        // One budget a tick for every player's resends (0.3.2): when the season's stage or the weather
+        // turned, every player's chunks went stale at once, and each player's own share all in one tick
+        // came to 80 ms with twenty players. Who goes first turns each tick, so no one waits for long.
+        resendDeadline = resending + RESEND_NANOS;
+        resendServed = false;
+        List<Object[]> everyone = new ArrayList<>();
         for (World world : worlds) {
             Looks.WorldLook look = looks.worlds.get(world.getUID());
             if (look == null) continue;
-            for (Player player : world.getPlayers()) resend(player, world, look);
+            for (Player player : world.getPlayers()) everyone.add(new Object[]{player, world, look});
+        }
+        if (!everyone.isEmpty()) {
+            int start = (int) Math.floorMod(tick, (long) everyone.size());
+            for (int i = 0; i < everyone.size(); i++) {
+                Object[] one = everyone.get((start + i) % everyone.size());
+                resend((Player) one[0], (World) one[1], (Looks.WorldLook) one[2]);
+            }
         }
         worstResend = Math.max(worstResend, System.nanoTime() - resending);
     }
@@ -209,6 +222,12 @@ public final class LookUpdater implements Listener {
         worstLines = worstResend = 0;
         return worst;
     }
+
+    /** The most time every player's resends may take a tick, together (at least one player is served). */
+    static final long RESEND_NANOS = 3_000_000L;
+    private long resendDeadline;
+    /** Whether some player was sent anything this tick: past the budget, the rest wait for the next. */
+    private boolean resendServed;
 
     /** When each world's lines are to be worked out once more after its weather turned. */
     private final Map<UUID, Long> recheck = new HashMap<>();
@@ -288,11 +307,13 @@ public final class LookUpdater implements Listener {
                 for (int dz = -radius; dz <= radius; dz++) {
                     long key = Looks.chunkKey(px + dx, pz + dz);
                     if (!near.add(key)) continue;
-                    // Not loaded yet: its ground isn't known, so its lines would only be worked out again.
-                    if (!world.isChunkLoaded(px + dx, pz + dz)) continue;
+                    // Fresh lines first, which is nearly all of them (0.3.2): asking the server whether each
+                    // chunk round every player is loaded, twice a second, was the hottest thing EZclimates did.
                     long at = work.at.get(key);
                     boolean never = at == Long.MIN_VALUE;
                     if (!never && tick - at < LINE_TICKS) continue;
+                    // Not loaded yet: its ground isn't known, so its lines would only be worked out again.
+                    if (!world.isChunkLoaded(px + dx, pz + dz)) continue;
                     // Missing ones first, then by distance.
                     wanted.add(new long[]{key, (never ? 0 : 1_000_000L) + (long) dx * dx + (long) dz * dz});
                 }
@@ -343,7 +364,9 @@ public final class LookUpdater implements Listener {
             return;
         }
         Map<Vector2i, WrapperPlayServerChunkBiomes.ChunkBiomeData> batch = new LinkedHashMap<>();
-        while (!pending.stale.isEmpty() && batch.size() < settings.chunksPerTick()) {
+        while (!pending.stale.isEmpty() && batch.size() < settings.chunksPerTick()
+                && (batch.isEmpty() || System.nanoTime() < resendDeadline)) {
+            if (batch.isEmpty() && System.nanoTime() >= resendDeadline && resendServed) break;
             long key = pending.stale.pollFirst()[0];
             int cx = Looks.chunkX(key), cz = Looks.chunkZ(key);
             // Since it was found: the player may have left it behind, or been sent it afresh.
@@ -354,6 +377,7 @@ public final class LookUpdater implements Listener {
             sent.put(key, new Looks.Look(stage, lines));
         }
         if (batch.isEmpty()) return;
+        resendServed = true;
         // Silently: these already show the copies, so the rewriter leaves them alone.
         PacketEvents.getAPI().getPlayerManager().sendPacketSilently(player, new WrapperPlayServerChunkBiomes(batch));
         resentTotal += batch.size();
