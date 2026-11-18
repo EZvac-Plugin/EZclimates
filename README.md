@@ -1,6 +1,85 @@
+<div align="center">
+
 # EZclimates
 
-**Seasons you can see and feel, from [EZvac](https://github.com/EZvac-Plugin/EZvac)'s climate.** An official EZvac addon.
+**Seasons you can see and feel, from EZvac's climate.**<br>
+An official addon for [EZvac](https://github.com/EZvac-Plugin/EZvac), real heating, cooling and indoor climate for Paper and Purpur.
+
+[![Release](https://img.shields.io/github/v/release/EZvac-Plugin/EZclimates?label=release&color=0e7c86&logo=github&style=for-the-badge&labelColor=1f2328)](https://github.com/EZvac-Plugin/EZclimates/releases)
+[![Needs EZvac](https://img.shields.io/badge/needs%20EZvac-BETA%201.0%20P4%2B-0e7c86?style=for-the-badge&labelColor=1f2328&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNOCAxYzIuNCAyLjggNC42IDUuNSA0LjYgOC4yYTQuNiA0LjYgMCAwIDEtOS4yIDBDMy40IDYuNSA1LjYgMy44IDggMXptMCA2LjZhMS43IDEuNyAwIDEgMCAwIDMuNCAxLjcgMS43IDAgMCAwIDAtMy40eiIvPjwvc3ZnPg==)](https://github.com/EZvac-Plugin/EZvac)
+[![Minecraft](https://img.shields.io/badge/Minecraft-26.1%2B-0e7c86?style=for-the-badge&labelColor=1f2328&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiIgc2hhcGUtcmVuZGVyaW5nPSJjcmlzcEVkZ2VzIj48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIGZpbGw9IiM4YTVhM2IiLz48cmVjdCB3aWR0aD0iMTYiIGhlaWdodD0iNSIgZmlsbD0iIzZhYWEzYSIvPjxyZWN0IHg9IjIiIHk9IjUiIHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiM2YWFhM2EiLz48cmVjdCB4PSI3IiB5PSI1IiB3aWR0aD0iMiIgaGVpZ2h0PSIzIiBmaWxsPSIjNmFhYTNhIi8+PHJlY3QgeD0iMTIiIHk9IjUiIHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiM2YWFhM2EiLz48cmVjdCB4PSI0IiB5PSIxMCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgZmlsbD0iIzZiNDMyOSIvPjxyZWN0IHg9IjEwIiB5PSIxMiIgd2lkdGg9IjIiIGhlaWdodD0iMiIgZmlsbD0iIzZiNDMyOSIvPjxyZWN0IHg9IjEyIiB5PSI4IiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjYTc3NzRmIi8+PHJlY3QgeD0iMiIgeT0iMTMiIHdpZHRoPSIxIiBoZWlnaHQ9IjEiIGZpbGw9IiNhNzc3NGYiLz48L3N2Zz4=)](#requirements)
+[![License](https://img.shields.io/github/license/EZvac-Plugin/EZclimates?color=0e7c86&logo=opensourceinitiative&style=for-the-badge&labelColor=1f2328)](LICENSE)
+
+[![Download](https://img.shields.io/badge/Download-f69500?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTcgMWgydjdsMi41LTIuNSAxLjQgMS40TDggMTEuOCAzLjEgNi45bDEuNC0xLjRMNyA4eiIvPjxwYXRoIGZpbGw9IiNmZmYiIGQ9Ik0yIDEyaDJ2MS41aDhWMTJoMnYzLjVIMnoiLz48L3N2Zz4=)](https://github.com/EZvac-Plugin/EZclimates/releases/latest)
+[![EZvac](https://img.shields.io/badge/EZvac-f69500?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNOCAxYzIuNCAyLjggNC42IDUuNSA0LjYgOC4yYTQuNiA0LjYgMCAwIDEtOS4yIDBDMy40IDYuNSA1LjYgMy44IDggMXptMCA2LjZhMS43IDEuNyAwIDEgMCAwIDMuNCAxLjcgMS43IDAgMCAwIDAtMy40eiIvPjwvc3ZnPg==)](https://github.com/EZvac-Plugin/EZvac)
+[![Website](https://img.shields.io/badge/EZvac%20website-f69500?style=for-the-badge&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNiAxNiI+PHBhdGggZmlsbD0iI2ZmZiIgZmlsbC1ydWxlPSJldmVub2RkIiBkPSJNOCAxYTcgNyAwIDEgMCAwIDE0QTcgNyAwIDAgMCA4IDF6bS0uOCAxLjZDNi40IDMuNyA1LjkgNS4zIDUuOCA3LjJIMy4xYTUgNSAwIDAgMSA0LjEtNC42em0xLjYgMGE1IDUgMCAwIDEgNC4xIDQuNmgtMi43Yy0uMS0xLjktLjYtMy41LTEuNC00LjZ6TTcuMiA3LjJINy4zYy4xLTEuNi41LTMgLjctMy42LjIuNi42IDIgLjcgMy42ek0zLjEgOC44aDIuN2MuMSAxLjkuNiAzLjUgMS40IDQuNmE1IDUgMCAwIDEtNC4xLTQuNnptNC4yIDBoMS40Yy0uMSAxLjYtLjUgMy0uNyAzLjYtLjItLjYtLjYtMi0uNy0zLjZ6bTMuNiAwaDIuN2E1IDUgMCAwIDEtNC4xIDQuNmMuOC0xLjEgMS4zLTIuNyAxLjQtNC42eiIvPjwvc3ZnPg==)](https://ezvac-plugin.github.io/EZvac/)
+
+</div>
+
+## Features
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**🌨️ Rain and snow where EZvac says**<br>
+Snow falls wherever EZvac's air is cold enough, by the season, the height and the time of day.
+
+</td>
+<td width="50%" valign="top">
+
+**🍂 Leaves and grass through the year**<br>
+Fresh in spring, yellowing and orange-red in autumn, dull in winter.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**❄️ Snow and ice that melt**<br>
+Snow settles and melts, ponds and lakes freeze, and only what EZclimates placed ever goes.
+
+</td>
+<td valign="top">
+
+**⛈️ The weather, planned**<br>
+Fronts, thunderstorms, snowstorms, heat waves and cold snaps, planned days ahead so forecasts come true.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🌱 Crops that grow by the air**<br>
+Fields wait for spring, while a greenhouse EZvac keeps warm grows through winter.
+
+</td>
+<td valign="top">
+
+**🌼 The ground through the year**<br>
+Spring flowers and cherry petals, autumn leaf litter and mushrooms.
+
+</td>
+</tr>
+<tr>
+<td valign="top">
+
+**🌡️ Body temperature**<br>
+Cold and heat wear players down: rain soaks them, fires warm them, food helps.
+
+</td>
+<td valign="top">
+
+**🥩 Food that spoils**<br>
+Food keeps by the cold, much longer in EZvac's fridges and freezers.
+
+</td>
+</tr>
+</table>
+
+Switched as a whole or part by part from EZvac's Addons menu (`/hvac addons`), with no re-logging when the season turns.
+
+## In detail
 
 - **Rain and snow where EZvac says.** While it rains, snow falls wherever EZvac's air is at or below 33 °F, and rain elsewhere. The season, the height and the time of day all count: the plains snow in a cold winter, a mountain snows at the top and rains at its foot, and a desert gets rain in a thunderstorm (EZvac's `weather.dry-areas`).
 - **Leaves and grass through the year:** fresh in spring, as vanilla in summer, yellowing in early autumn, orange-red in late autumn, dull in winter. Broadleaf forests turn most, jungles barely. Birch and spruce leaves keep their fixed colours, as in vanilla.
@@ -99,15 +178,20 @@ Switched on in `/hvac addons` (EZclimates, Food spoiling). It starts off, becaus
 
 Each food's days, its fridge and freezer factors and what it turns into are in [`food.yml`](src/main/resources/food.yml), with `pace` to make all of them longer or shorter.
 
-## How it works
+## Settings
+
+See [`body.yml`](src/main/resources/body.yml) for body temperature, [`food.yml`](src/main/resources/food.yml) for food that spoils, and [`config.yml`](src/main/resources/config.yml) for the rest: plants (the temperatures crops grow between, flowers and mushrooms), rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
+
+<details>
+<summary><b>How it works</b></summary>
+
+<br>
 
 At start-up EZclimates reads the server's own vanilla biome files and writes a datapack of seasonal copies of the 52 surface overworld biomes: 5 stages × rain, snow or dry, 728 in all, named like `ezclimates:plains/autumn_late_snow` so F3 still says which biome it is. Each copy differs only in its temperature, precipitation and colours; spawns, sky, fog, music and water stay. Paper loads the pack, and packetevents swaps each chunk section's biomes for their copies in what each player is sent, by EZvac's rain-or-snow edge (a copy per 4×4 biome cell, so rain and snow meet along a wavy line on the land, never in layers above you) and the year's progress. Nothing of Mojang's ships in the jar.
 
 The server still uses the real biomes, so a player in a desert thunderstorm sees rain but isn't wet by the server's count.
 
-## Settings
-
-See [`body.yml`](src/main/resources/body.yml) for body temperature, [`food.yml`](src/main/resources/food.yml) for food that spoils, and [`config.yml`](src/main/resources/config.yml) for the rest: plants (the temperatures crops grow between, flowers and mushrooms), rain and snow, the colour stages and how strongly each kind of biome turns, snow (radius, maximum layers, rate), ice, the weather (each season's dry spells, fronts and thunder, snowstorms, heat waves, cold snaps, and how sure forecasts are), and per-tick budgets. The plan is kept in `weather.yml`.
+</details>
 
 ## Licence
 
